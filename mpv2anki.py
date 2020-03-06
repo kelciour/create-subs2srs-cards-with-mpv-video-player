@@ -55,6 +55,11 @@ from anki.mpv import *
 
 from . import icons_rc
 
+try:
+    from aqt.sound import _packagedCmd
+except:
+    from anki.sound import _packagedCmd
+
 if isMac:
     # https://docs.brew.sh/FAQ#my-mac-apps-dont-find-usrlocalbin-utilities
     os.environ['PATH'] = "/usr/local/bin:" + os.environ['PATH']
@@ -462,7 +467,10 @@ class MessageHandler(QObject):
 
 class MPVMonitor(MPV):
 
-    def __init__(self, filePath, mpvConf, msgHandler):
+    def __init__(self, executable, popenEnv, filePath, mpvConf, msgHandler):
+        self.executable = executable
+        self.popenEnv = popenEnv
+
         super().__init__(window_id=None, debug=False)
 
         self.filePath = filePath
@@ -498,14 +506,14 @@ class MPVMonitor(MPV):
 
 class AnkiHelper(QObject):
 
-    def __init__(self, filePath, configManager, subsManager):
+    def __init__(self, executable, popenEnv, filePath, configManager, subsManager):
         QObject.__init__(self, mw)
         self.filePath = filePath
         self.configManager = configManager
         self.subsManager = subsManager
         self.msgHandler = MessageHandler()
         self.mpvConf = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mpv.conf")
-        self.mpvManager = MPVMonitor(filePath, self.mpvConf, self.msgHandler)
+        self.mpvManager = MPVMonitor(executable, popenEnv, filePath, self.mpvConf, self.msgHandler)
         self.settings = self.configManager.getSettings()
 
         self.initFieldsMapping()
@@ -1093,6 +1101,15 @@ class MainWindow(QDialog):
 
 def openVideoWithMPV():
     executable = find_executable("mpv")
+    popenEnv = os.environ.copy()
+
+    if executable is None:
+        mpvPath, popenEnv = _packagedCmd(["mpv"])
+        executable = mpvPath[0]
+
+    if "LD_LIBRARY_PATH" in popenEnv:
+        del popenEnv['LD_LIBRARY_PATH']
+
     if executable == None:
         return showWarning("Please install <a href='https://mpv.io'>mpv</a> and add it to the PATH environment variable on Windows.", parent=mw)
 
@@ -1106,7 +1123,7 @@ def openVideoWithMPV():
 
         subsManager = SubtitlesHelper(filePath, configManager)
         if subsManager.status_code != "error":
-            AnkiHelper(filePath, configManager, subsManager)
+            AnkiHelper(executable, popenEnv, filePath, configManager, subsManager)
 
     mw.reset()
 
