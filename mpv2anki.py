@@ -64,6 +64,8 @@ if isMac:
     # https://docs.brew.sh/FAQ#my-mac-apps-dont-find-usrlocalbin-utilities
     os.environ['PATH'] = "/usr/local/bin:" + os.environ['PATH']
 
+ffmpeg_executable = find_executable("ffmpeg")
+
 langs = [(lang, lc) for lang, lc in langs if not lang.startswith("English")]
 langs = sorted(langs + [("English", "en")])
 
@@ -477,6 +479,7 @@ class MPVMonitor(MPV):
         self.mpvConf = mpvConf
         self.msgHandler = msgHandler
         self.audio_id = "auto"
+        self.audio_ffmpeg_id = 0
         self.sub_id = "auto"
 
         self.set_property("include", self.mpvConf)
@@ -493,6 +496,20 @@ class MPVMonitor(MPV):
 
     def on_property_aid(self, audio_id=None):
         self.audio_id = audio_id
+        if audio_id == False:
+            self.audio_ffmpeg_id = 0
+        elif audio_id == "auto":
+            track_count = int(self.get_property("track-list/count"))
+            for i in range(1, track_count + 1):
+                track_type = self.get_property("track-list/%d/type" % i)
+                track_index = int(self.get_property("track-list/%d/ff-index" % i))
+                track_selected = self.get_property("track-list/%d/selected" % i)
+
+                if track_type == "audio" and track_selected == "yes":
+                    self.audio_ffmpeg_id = track_index
+                    break
+        else:
+            self.audio_ffmpeg_id = self.audio_id - 1
 
     def on_property_sid(self, sub_id=None):
         self.sub_id = sub_id if sub_id != False else "no"
@@ -549,46 +566,77 @@ class AnkiHelper(QObject):
     def subprocess_image(self, source, timePos, subprocess_calls, sub="no", suffix=""):
         image = "%s_%s%s.jpg" % (format_filename(source), secondsToFilename(timePos), suffix)
         imagePath = os.path.join(mw.col.media.dir(), image)
-        argv = ["mpv", self.filePath]
-        argv += ["--include=%s" % self.mpvConf]
-        argv += ["--start=%s" % secondsToTimestamp(timePos)]
-        argv += ["--audio=no"]
-        argv += ["--sub=%s" % sub]
-        argv += ["--sub-visibility=yes"]
-        argv += ["--frames=1"]
-        argv += ["--vf-add=lavfi-scale=%s:%s" % (self.settings["image_width"], self.settings["image_height"])]
-        argv += ["--ovc=mjpeg"]
-        argv += ["--o=%s" % imagePath]
+        if ffmpeg_executable:
+            argv = ["ffmpeg"]
+            argv += ["-ss", secondsToTimestamp(timePos)]
+            argv += ["-i", self.filePath]
+            argv += ["-vframes", "1"]
+            argv += [imagePath]
+        else:
+            argv = ["mpv", self.filePath]
+            argv += ["--include=%s" % self.mpvConf]
+            argv += ["--start=%s" % secondsToTimestamp(timePos)]
+            argv += ["--audio=no"]
+            argv += ["--sub=%s" % sub]
+            argv += ["--sub-visibility=yes"]
+            argv += ["--frames=1"]
+            argv += ["--vf-add=lavfi-scale=%s:%s" % (self.settings["image_width"], self.settings["image_height"])]
+            argv += ["--ovc=mjpeg"]
+            argv += ["--o=%s" % imagePath]
         subprocess_calls.append(argv)
         return image
 
-    def subprocess_audio(self, source, sub_start, sub_end, aid, subprocess_calls):
+    def subprocess_audio(self, source, sub_start, sub_end, aid, aid_ff, subprocess_calls):
         audio = "%s_%s-%s.m4a" % (format_filename(source), secondsToFilename(sub_start), secondsToFilename(sub_end))
         audioPath = os.path.join(mw.col.media.dir(), audio)
-        argv = ["mpv", self.filePath]
-        argv += ["--include=%s" % self.mpvConf]
-        argv += ["--start=%s" % secondsToTimestamp(sub_start), "--end=%s" % secondsToTimestamp(sub_end)]
-        argv += ["--aid=%d" % aid]
-        argv += ["--video=no"]
-        argv += ["--af=afade=t=in:st=%s:d=%s,afade=t=out:st=%s:d=%s" % (sub_start, 0.25, sub_end - 0.25, 0.25)]
-        argv += ["--o=%s" % audioPath]
+        if ffmpeg_executable:
+            argv = ["ffmpeg"]
+            argv += ["-ss", secondsToTimestamp(sub_start)]
+            argv += ["-i", self.filePath]
+            argv += ["-t", secondsToTimestamp(sub_end - sub_start)]
+            argv += ["-map", "0:a:%d" % aid_ff]
+            argv += ["-af", "afade=t=in:st={:.3f}:d={:.3f},afade=t=out:st={:.3f}:d={:.3f}".format(0, 0.25, sub_end - sub_start - 0.25, 0.25)]
+            argv += ["-vn"]
+            argv += [audioPath]
+        else:
+            argv = ["mpv", self.filePath]
+            argv += ["--include=%s" % self.mpvConf]
+            argv += ["--start=%s" % secondsToTimestamp(sub_start), "--end=%s" % secondsToTimestamp(sub_end)]
+            argv += ["--aid=%d" % aid]
+            argv += ["--video=no"]
+            argv += ["--af=afade=t=in:st=%s:d=%s,afade=t=out:st=%s:d=%s" % (sub_start, 0.25, sub_end - 0.25, 0.25)]
+            argv += ["--o=%s" % audioPath]
         subprocess_calls.append(argv)
         return audio
 
-    def subprocess_video(self, source, sub_start, sub_end, aid, video_format, key, subprocess_calls):
+    def subprocess_video(self, source, sub_start, sub_end, aid, aid_ff, video_format, key, subprocess_calls):
         video = "%s_%s-%s.%s" % (format_filename(source), secondsToFilename(sub_start), secondsToFilename(sub_end), video_format)
         videoPath = os.path.join(mw.col.media.dir(), video)
-        argv = ["mpv", self.filePath]
-        argv += ["--include=%s" % self.mpvConf]
-        argv += ["--start=%s" % secondsToTimestamp(sub_start), "--end=%s" % secondsToTimestamp(sub_end)]
-        argv += ["--sub=no"]
-        argv += ["--aid=%d" % aid]
-        argv += ["--af=afade=t=in:st=%s:d=%s,afade=t=out:st=%s:d=%s" % (sub_start, 0.25, sub_end - 0.25, 0.25)]
-        argv += ["--vf-add=lavfi-scale=%s:%s" % (self.settings[key + "video_width"], self.settings[key + "video_height"])]
-        if video_format == "webm":
-            argv += ["--ovc=libvpx-vp9"]
-            argv += ["--ovcopts=b=1400K,threads=4,crf=23,qmin=0,qmax=36,speed=2"]
-        argv += ["--o=%s" % videoPath]
+        if ffmpeg_executable:
+            argv = ["ffmpeg"]
+            argv += ["-ss", secondsToTimestamp(sub_start)]
+            argv += ["-i", self.filePath]
+            argv += ["-t", secondsToTimestamp(sub_end - sub_start)]
+            argv += ["-map", "0:v:0"]
+            argv += ["-map", "0:a:%d" % aid_ff]
+            argv += ["-af", "afade=t=in:st={:.3f}:d={:.3f},afade=t=out:st={:.3f}:d={:.3f}".format(0, 0.25, sub_end - sub_start - 0.25, 0.25)]
+            argv += ["-vf", "scale=%d:%d" % (self.settings[key + "video_width"], self.settings[key + "video_height"])]
+            if video_format == "webm":
+                argv += ["-c:v", "libvpx-vp9"]
+                argv += ["-b:v", "1400K", "-threads", "8", "-speed", "2", "-crf", "23"]
+            argv += [videoPath]
+        else:
+            argv = ["mpv", self.filePath]
+            argv += ["--include=%s" % self.mpvConf]
+            argv += ["--start=%s" % secondsToTimestamp(sub_start), "--end=%s" % secondsToTimestamp(sub_end)]
+            argv += ["--sub=no"]
+            argv += ["--aid=%d" % aid]
+            argv += ["--af=afade=t=in:st=%s:d=%s,afade=t=out:st=%s:d=%s" % (sub_start, 0.25, sub_end - 0.25, 0.25)]
+            argv += ["--vf-add=lavfi-scale=%s:%s" % (self.settings[key + "video_width"], self.settings[key + "video_height"])]
+            if video_format == "webm":
+                argv += ["--ovc=libvpx-vp9"]
+                argv += ["--ovcopts=b=1400K,threads=4,crf=23,qmin=0,qmax=36,speed=2"]
+            argv += ["--o=%s" % videoPath]
         subprocess_calls.append(argv)
         return video
 
@@ -686,6 +734,7 @@ class AnkiHelper(QObject):
         subprocess_calls = []
 
         aid = self.mpvManager.audio_id
+        aid_ff = self.mpvManager.audio_ffmpeg_id
         sid = self.mpvManager.sub_id
 
         fieldsMap = self.fieldsMap[key + "default_model"]
@@ -700,16 +749,16 @@ class AnkiHelper(QObject):
         
         if sub_id is not None or (timeStart >= 0 and timeEnd >= 0):
             if "Audio" in fieldsMap:
-                audio = self.subprocess_audio(source, sub_start, sub_end, aid, subprocess_calls)
+                audio = self.subprocess_audio(source, sub_start, sub_end, aid, aid_ff, subprocess_calls)
                 noteFields["Audio"] = '[sound:%s]' % audio
 
             if "Video" in fieldsMap or "Video (HTML5)" in fieldsMap:
-                video = self.subprocess_video(source, sub_start, sub_end, aid, "mp4", key, subprocess_calls)
+                video = self.subprocess_video(source, sub_start, sub_end, aid, aid_ff, "mp4", key, subprocess_calls)
                 noteFields["Video"] = '[sound:%s]' % video
                 noteFields["Video (HTML5)"] = video
 
             if "[webm] Video" in fieldsMap or "[webm] Video (HTML5)" in fieldsMap :
-                video = self.subprocess_video(source, sub_start, sub_end, aid, "webm", key, subprocess_calls)
+                video = self.subprocess_video(source, sub_start, sub_end, aid, aid_ff, "webm", key, subprocess_calls)
                 noteFields["[webm] Video"] = '[sound:%s]' % video
                 noteFields["[webm] Video (HTML5)"] = video
             
@@ -724,12 +773,12 @@ class AnkiHelper(QObject):
                 noteFields["Audio (with context)"] = '[sound:%s]' % audio
 
             if "Video (with context)" in fieldsMap or "Video (HTML5 with context)" in fieldsMap:
-                video = self.subprocess_video(source, prev_sub_start, next_sub_end, aid, "mp4", key, subprocess_calls)
+                video = self.subprocess_video(source, prev_sub_start, next_sub_end, aid, aid_ff, "mp4", key, subprocess_calls)
                 noteFields["Video (with context)"] = '[sound:%s]' % video
                 noteFields["Video (HTML5 with context)"] = video
             
             if "[webm] Video (with context)" in fieldsMap or "[webm] Video (HTML5 with context)" in fieldsMap:
-                video = self.subprocess_video(source, prev_sub_start, next_sub_end, aid, "webm", key, subprocess_calls)
+                video = self.subprocess_video(source, prev_sub_start, next_sub_end, aid, aid_ff, "webm", key, subprocess_calls)
                 noteFields["[webm] Video (with context)"] = '[sound:%s]' % video
                 noteFields["[webm] Video (HTML5 with context)"] = video
 
