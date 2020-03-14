@@ -50,7 +50,7 @@ from anki.lang import _, langs
 from anki.hooks import addHook
 from aqt.studydeck import StudyDeck
 from distutils.spawn import find_executable
-from anki.utils import call
+from anki.utils import isWin
 from anki.mpv import *
 
 from . import icons_rc
@@ -515,6 +515,7 @@ class AnkiHelper(QObject):
         self.mpvConf = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mpv.conf")
         self.mpvManager = MPVMonitor(executable, popenEnv, filePath, self.mpvConf, self.msgHandler)
         self.settings = self.configManager.getSettings()
+        self.popenEnv = popenEnv
 
         self.initFieldsMapping()
 
@@ -590,6 +591,19 @@ class AnkiHelper(QObject):
         argv += ["--o=%s" % videoPath]
         subprocess_calls.append(argv)
         return video
+
+    # anki.utils.call() with bundle libs if mpv is packaged
+    def call(self, argv):
+        if isWin:
+            si = subprocess.STARTUPINFO()
+            try:
+                si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            except:
+                si.dwFlags |= subprocess._subprocess.STARTF_USESHOWWINDOW
+        else:
+            si = None
+
+        subprocess.Popen(argv, startupinfo=si, env=self.popenEnv)
 
     def addNewCard(self, timePos, timeStart, timeEnd, subText, key="", phraseMode=False):
         
@@ -746,7 +760,7 @@ class AnkiHelper(QObject):
             mw.col.decks.select(did)
 
         for p in subprocess_calls:
-            call(p, wait=False)
+            self.call(p)
 
         if sub_id is not None and "Video Subtitles" in fieldsMap:
             self.subsManager.write_subtitles(video_sub_start, video_sub_end, video_sub_pad_start, video_sub_pad_end, subtitlesPath)
@@ -1106,9 +1120,9 @@ def openVideoWithMPV():
     if executable is None:
         mpvPath, popenEnv = _packagedCmd(["mpv"])
         executable = mpvPath[0]
-
-    if "LD_LIBRARY_PATH" in popenEnv:
-        del popenEnv['LD_LIBRARY_PATH']
+    else:
+        if "LD_LIBRARY_PATH" in popenEnv:
+            del popenEnv['LD_LIBRARY_PATH']
 
     if executable == None:
         return showWarning("Please install <a href='https://mpv.io'>mpv</a> and add it to the PATH environment variable on Windows.", parent=mw)
