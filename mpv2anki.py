@@ -818,7 +818,10 @@ class AnkiHelper(QObject):
         if cards == 0:
             self.mpvManager.command("show-text", "Error: No cards added.")
         else:
-            self.mpvManager.command("expand-properties", "show-text", "${osd-ass-cc/0}{\\fscx150\\fscy150}✔")
+            if isMac:
+                self.mpvManager.command("expand-properties", "show-text", "Added.")
+            else:
+                self.mpvManager.command("expand-properties", "show-text", "${osd-ass-cc/0}{\\fscx150\\fscy150}✔")
         mw.reset()
 
 class FieldMapping(QDialog):
