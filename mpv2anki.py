@@ -566,7 +566,7 @@ class AnkiHelper(QObject):
     def subprocess_image(self, source, timePos, subprocess_calls, sub="no", suffix=""):
         image = "%s_%s%s.jpg" % (format_filename(source), secondsToFilename(timePos), suffix)
         imagePath = os.path.join(mw.col.media.dir(), image)
-        if ffmpeg_executable:
+        if ffmpeg_executable and sub == "no":
             argv = ["ffmpeg"]
             argv += ["-ss", secondsToTimestamp(timePos)]
             argv += ["-i", self.filePath]
