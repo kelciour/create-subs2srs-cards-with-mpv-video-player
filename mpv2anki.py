@@ -308,11 +308,11 @@ class SubtitlesHelper():
     def write_subtitles(self, clip_start, clip_end, pad_start, pad_end, filename):
         subs = self.filter_subtitles(clip_start, clip_end, pad_start, pad_end)
 
-        f = open(filename, 'w')
+        f = open(filename, 'w', encoding='utf-8')
         for idx in range(len(subs)):
             f.write(str(idx+1) + "\n")
             f.write(seconds_to_srt_time(subs[idx][0]) + " --> " + seconds_to_srt_time(subs[idx][1]) + "\n")
-            f.write(subs[idx][2].encode('utf-8') + "\n")
+            f.write(subs[idx][2] + "\n")
             f.write("\n")
         f.close()
 
@@ -609,8 +609,12 @@ class AnkiHelper(QObject):
         subprocess_calls.append(argv)
         return audio
 
-    def subprocess_video(self, source, sub_start, sub_end, aid, aid_ff, video_format, key, subprocess_calls):
+    def get_video_filename(self, source, sub_start, sub_end, video_format):
         video = "%s_%s-%s.%s" % (format_filename(source), secondsToFilename(sub_start), secondsToFilename(sub_end), video_format)
+        return video
+
+    def subprocess_video(self, source, sub_start, sub_end, aid, aid_ff, video_format, key, subprocess_calls):
+        video = self.get_video_filename(source, sub_start, sub_end, video_format)
         videoPath = os.path.join(mw.col.media.dir(), video)
         if ffmpeg_executable:
             argv = ["ffmpeg"]
@@ -739,6 +743,13 @@ class AnkiHelper(QObject):
 
         fieldsMap = self.fieldsMap[key + "default_model"]
 
+        video = None
+
+        video_sub_start = sub_start
+        video_sub_end = sub_end
+        video_sub_pad_start = sub_pad_start
+        video_sub_pad_end = sub_pad_end
+
         if "Image" in fieldsMap:
             image = self.subprocess_image(source, timePos, subprocess_calls)
             noteFields["Image"] = '<img src="%s" />' % image
@@ -761,33 +772,35 @@ class AnkiHelper(QObject):
                 video = self.subprocess_video(source, sub_start, sub_end, aid, aid_ff, "webm", key, subprocess_calls)
                 noteFields["[webm] Video"] = '[sound:%s]' % video
                 noteFields["[webm] Video (HTML5)"] = video
-            
-            video_sub_start = sub_start
-            video_sub_end = sub_end
-            video_sub_pad_start = sub_pad_start
-            video_sub_pad_end = sub_pad_end
 
         if sub_id is not None:
             if "Audio (with context)" in fieldsMap:
                 audio = self.subprocess_audio(source, prev_sub_start, next_sub_end, aid, subprocess_calls)
                 noteFields["Audio (with context)"] = '[sound:%s]' % audio
 
+            is_context = False
+
             if "Video (with context)" in fieldsMap or "Video (HTML5 with context)" in fieldsMap:
                 video = self.subprocess_video(source, prev_sub_start, next_sub_end, aid, aid_ff, "mp4", key, subprocess_calls)
                 noteFields["Video (with context)"] = '[sound:%s]' % video
                 noteFields["Video (HTML5 with context)"] = video
+                is_context = True
             
             if "[webm] Video (with context)" in fieldsMap or "[webm] Video (HTML5 with context)" in fieldsMap:
                 video = self.subprocess_video(source, prev_sub_start, next_sub_end, aid, aid_ff, "webm", key, subprocess_calls)
                 noteFields["[webm] Video (with context)"] = '[sound:%s]' % video
                 noteFields["[webm] Video (HTML5 with context)"] = video
+                is_context = True
 
-            video_sub_start = prev_sub_start
-            video_sub_end = next_sub_end
-            video_sub_pad_start = self.settings[key + "pad_start"] / 1000.0
-            video_sub_pad_end = self.settings[key + "pad_end"] / 1000.0
+            if is_context:
+                video_sub_start = prev_sub_start
+                video_sub_end = next_sub_end
+                video_sub_pad_start = self.settings[key + "pad_start"] / 1000.0
+                video_sub_pad_end = self.settings[key + "pad_end"] / 1000.0
 
             if "Video Subtitles" in fieldsMap: 
+                if video is None:
+                    video = self.get_video_filename(source, video_sub_start, video_sub_end, "mp4")
                 subtitles = os.path.splitext(video)[0] + ".srt"
                 subtitlesPath = os.path.join(mw.col.media.dir(), subtitles)
                 noteFields["Video Subtitles"] = '[sound:%s]' % subtitles
