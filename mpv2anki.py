@@ -382,7 +382,7 @@ class SubtitlesHelper():
 
 class ConfigManager():
     def __init__(self):
-        self.configPath = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+        self.configPath = os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_files", "config.json")
         self.init()
         self.load()
 
