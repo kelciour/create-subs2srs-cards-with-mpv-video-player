@@ -745,10 +745,11 @@ class AnkiHelper(QObject):
 
         video = None
 
-        video_sub_start = sub_start
-        video_sub_end = sub_end
-        video_sub_pad_start = sub_pad_start
-        video_sub_pad_end = sub_pad_end
+        if sub_id is not None:
+            video_sub_start = sub_start
+            video_sub_end = sub_end
+            video_sub_pad_start = sub_pad_start
+            video_sub_pad_end = sub_pad_end
 
         if "Image" in fieldsMap:
             image = self.subprocess_image(source, timePos, subprocess_calls)
@@ -775,7 +776,7 @@ class AnkiHelper(QObject):
 
         if sub_id is not None:
             if "Audio (with context)" in fieldsMap:
-                audio = self.subprocess_audio(source, prev_sub_start, next_sub_end, aid, subprocess_calls)
+                audio = self.subprocess_audio(source, prev_sub_start, next_sub_end, aid, aid_ff, subprocess_calls)
                 noteFields["Audio (with context)"] = '[sound:%s]' % audio
 
             is_context = False
