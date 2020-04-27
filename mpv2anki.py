@@ -1184,7 +1184,7 @@ def openVideoWithMPV():
     executable = find_executable("mpv")
     popenEnv = os.environ.copy()
 
-    if executable is None and is Mac:
+    if executable is None and isMac:
         executable = "/Applications/mpv.app/Contents/MacOS/mpv"
         if not os.path.exists(executable):
             executable = None
