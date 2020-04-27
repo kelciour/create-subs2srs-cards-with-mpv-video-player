@@ -531,6 +531,7 @@ class AnkiHelper(QObject):
         self.msgHandler = MessageHandler()
         self.mpvConf = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mpv.conf")
         self.mpvManager = MPVMonitor(executable, popenEnv, filePath, self.mpvConf, self.msgHandler)
+        self.mpvExecutable = executable
         self.settings = self.configManager.getSettings()
         self.popenEnv = popenEnv
 
@@ -573,7 +574,7 @@ class AnkiHelper(QObject):
             argv += ["-vframes", "1"]
             argv += [imagePath]
         else:
-            argv = ["mpv", self.filePath]
+            argv = [self.mpvExecutable, self.filePath]
             argv += ["--include=%s" % self.mpvConf]
             argv += ["--start=%s" % secondsToTimestamp(timePos)]
             argv += ["--audio=no"]
@@ -599,7 +600,7 @@ class AnkiHelper(QObject):
             argv += ["-vn"]
             argv += [audioPath]
         else:
-            argv = ["mpv", self.filePath]
+            argv = [self.mpvExecutable, self.filePath]
             argv += ["--include=%s" % self.mpvConf]
             argv += ["--start=%s" % secondsToTimestamp(sub_start), "--end=%s" % secondsToTimestamp(sub_end)]
             argv += ["--aid=%d" % aid]
@@ -630,7 +631,7 @@ class AnkiHelper(QObject):
                 argv += ["-b:v", "1400K", "-threads", "8", "-speed", "2", "-crf", "23"]
             argv += [videoPath]
         else:
-            argv = ["mpv", self.filePath]
+            argv = [self.mpvExecutable, self.filePath]
             argv += ["--include=%s" % self.mpvConf]
             argv += ["--start=%s" % secondsToTimestamp(sub_start), "--end=%s" % secondsToTimestamp(sub_end)]
             argv += ["--sub=no"]
