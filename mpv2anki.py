@@ -473,7 +473,16 @@ class MPVMonitor(MPV):
         self.executable = executable
         self.popenEnv = popenEnv
 
+        try:
+            no_config_idx = self.default_argv.index("--no-config")
+            self.default_argv.remove("--no-config")
+        except ValueError:
+            no_config_idx = -1
+
         super().__init__(window_id=None, debug=False)
+
+        if no_config_idx >= 0:
+            self.default_argv.insert(no_config_idx, "--no-config")
 
         self.filePath = filePath
         self.mpvConf = mpvConf
