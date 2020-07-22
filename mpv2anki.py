@@ -167,7 +167,7 @@ class SubtitlesHelper():
         subs = []
         content = re.sub(r'\r\n', '\n', content)
         content = re.sub(r'\n\s*\n+', '\n\n', content)
-        content = re.sub(r'(^\d+\n\d+:\d+:\d+,\d+\s+-->\s+\d+:\d+:\d+,\d+\n)', r'#~~~~~~~~~~~~~~#\1', content, flags=re.M)
+        content = re.sub(r'(^\d+\n\d+:\d+:\d+,\d+\s+-->\s+\d+:\d+:\d+,\d+\s*\n)', r'#~~~~~~~~~~~~~~#\1', content, flags=re.M)
         for sub in content.strip().split('#~~~~~~~~~~~~~~#'):
             if not sub.strip():
                 continue
