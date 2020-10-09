@@ -403,6 +403,8 @@ class ConfigManager():
             "phrase_video_height" : 260,
             "phrase_pad_start" : 750,
             "phrase_pad_end" : 750,
+            "use_mpv" : False,
+            "audio_ext" : "m4a",
             "subs_target_language": "English",
             "subs_target_language_code": "en",
             "subs_native_language": "",
@@ -576,7 +578,7 @@ class AnkiHelper(QObject):
     def subprocess_image(self, source, timePos, subprocess_calls, sub="no", suffix=""):
         image = "%s_%s%s.jpg" % (format_filename(source), secondsToFilename(timePos), suffix)
         imagePath = os.path.join(mw.col.media.dir(), image)
-        if ffmpeg_executable and sub == "no":
+        if not self.settings["use_mpv"] and ffmpeg_executable and sub == "no":
             argv = ["ffmpeg"]
             argv += ["-ss", secondsToTimestamp(timePos)]
             argv += ["-i", self.filePath]
@@ -597,9 +599,9 @@ class AnkiHelper(QObject):
         return image
 
     def subprocess_audio(self, source, sub_start, sub_end, aid, aid_ff, subprocess_calls):
-        audio = "%s_%s-%s.m4a" % (format_filename(source), secondsToFilename(sub_start), secondsToFilename(sub_end))
+        audio = "%s_%s-%s.%s" % (format_filename(source), secondsToFilename(sub_start), secondsToFilename(sub_end), self.settings["audio_ext"])
         audioPath = os.path.join(mw.col.media.dir(), audio)
-        if ffmpeg_executable:
+        if not self.settings["use_mpv"] and ffmpeg_executable:
             argv = ["ffmpeg"]
             argv += ["-ss", secondsToTimestamp(sub_start)]
             argv += ["-i", self.filePath]
@@ -988,6 +990,10 @@ class MainWindow(QDialog):
         self.modelFieldsButton.clicked.connect(lambda: self.mapFields(self.modelButton.text()))
         self.deckButton = QPushButton(self.settings["default_deck"])
         self.deckButton.clicked.connect(lambda: self.chooseDeck("default_deck"))
+        self.useMPV = QCheckBox("Use MPV?")
+        self.useMPV.setChecked(self.settings["use_mpv"])
+
+        self.audio_ext = QLineEdit(self.settings["audio_ext"])
 
         icon = QIcon(":/icons/gears.png")
         self.modelFieldsButton.setIcon(icon)
@@ -999,6 +1005,9 @@ class MainWindow(QDialog):
         grid.addWidget(self.modelFieldsButton, 0, 2)
         grid.addWidget(QLabel("Deck:"), 0, 3)
         grid.addWidget(self.deckButton, 0, 4)
+        grid.addWidget(self.useMPV, 1, 4)
+        grid.addWidget(QLabel("File ext:"), 1, 0)
+        grid.addWidget(self.audio_ext, 1, 1)
         grid.setColumnStretch(4, 1)
 
         importGroup.setLayout(grid)
@@ -1023,7 +1032,7 @@ class MainWindow(QDialog):
         hbox.addWidget(videoGroup)
         hbox.addWidget(padGroup)
 
-        grid.addLayout(hbox, 1, 0, 1, 5)
+        grid.addLayout(hbox, 2, 0, 1, 5)
 
         subsGroup = QGroupBox("Subtitles")
         grid3 = QGridLayout()
@@ -1058,7 +1067,7 @@ class MainWindow(QDialog):
         grid3.addItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum), 0, 4, 1, 2)
         subsGroup.setLayout(grid3)
 
-        grid.addWidget(subsGroup, 2, 0, 1, 5)
+        grid.addWidget(subsGroup, 3, 0, 1, 5)
 
         # Import Phrases Options
 
@@ -1158,12 +1167,14 @@ class MainWindow(QDialog):
     def saveSettings(self):
         self.settings["default_model"] = self.modelButton.text()
         self.settings["default_deck"] = self.deckButton.text()
+        self.settings["use_mpv"] = self.useMPV.isChecked()
         self.settings["image_width"] = self.imageWidth.value()
         self.settings["image_height"] = self.imageHeight.value()
         self.settings["video_width"] = self.videoWidth.value()
         self.settings["video_height"] = self.videoHeight.value()
         self.settings["pad_start"] = self.padStart.value()
         self.settings["pad_end"] = self.padEnd.value()
+        self.settings["audio_ext"] = self.audio_ext.text()
 
         self.settings["subs_target_language"] = self.subsTargetLang.currentText()
         self.settings["subs_target_language_code"] = self.subsTargetLC.text()
