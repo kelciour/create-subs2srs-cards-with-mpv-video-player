@@ -403,7 +403,7 @@ class ConfigManager():
             "phrase_video_height" : 260,
             "phrase_pad_start" : 750,
             "phrase_pad_end" : 750,
-            "use_mpv" : False,
+            "use_mpv" : True,
             "audio_ext" : "mp3",
             "subs_target_language": "English",
             "subs_target_language_code": "en",
