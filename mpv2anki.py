@@ -113,25 +113,29 @@ class SubtitlesHelper():
         self.filePath = filePath
         self.settings = configManager.getSettings()
         self.status_code = "success"
+        self.subsPath = None
+        self.translationsPath = None
         self.init()
 
     def init(self):
         self.subs = []
         self.translations = []
 
-        if not self.settings["subs_target_language_code"] == "":
-            subs_base_path = os.path.splitext(self.filePath)[0]
+        subs_base_path = os.path.splitext(self.filePath)[0]
+        if self.settings["subs_target_language_code"]:
             subs_filepattern = subs_base_path + "*" + self.settings["subs_target_language_code"] + "*" + ".srt"
             subs_filepattern = fix_glob_square_brackets(subs_filepattern)
             subs_list = glob.glob(subs_filepattern)
             if len(subs_list) > 0:
                 self.subsPath = subs_list[0]
                 self.subs = self.read_subtitles(self.subsPath)
-            elif os.path.isfile(subs_base_path + ".srt"):
+
+        if not self.subs:
+            if os.path.isfile(subs_base_path + ".srt"):
                 self.subsPath = subs_base_path + ".srt"
                 self.subs = self.read_subtitles(self.subsPath)
 
-        if not self.settings["subs_native_language_code"] == "":
+        if self.settings["subs_native_language_code"]:
             subs_filepattern = subs_base_path + "*" + self.settings["subs_native_language_code"] + "*" + ".srt"
             subs_filepattern = fix_glob_square_brackets(subs_filepattern)
             subs_list = glob.glob(subs_filepattern)
@@ -471,9 +475,10 @@ class MessageHandler(QObject):
 
 class MPVMonitor(MPV):
 
-    def __init__(self, executable, popenEnv, filePath, mpvConf, msgHandler):
+    def __init__(self, executable, popenEnv, filePath, mpvConf, msgHandler, subsManager):
         self.executable = executable
         self.popenEnv = popenEnv
+        self.subsManager = subsManager
 
         try:
             no_config_idx = self.default_argv.index("--no-config")
@@ -498,7 +503,13 @@ class MPVMonitor(MPV):
         self.command("load-script", os.path.join(os.path.dirname(os.path.abspath(__file__)), "mpv2anki.lua"))
 
         self.command("loadfile", self.filePath, "append-play")
-        
+
+        if self.subsManager.subsPath:
+            self.command("sub-add", self.subsManager.subsPath)
+
+        if self.subsManager.translationsPath:
+            self.command("sub-add", self.subsManager.translationsPath)
+
     def on_property_term_status_msg(self, statusMsg=None):
         m = re.match(r"^\[mpv2anki\] ([^#]+) # ([^#]+) # ([^#]+) # (.*)$", statusMsg, re.DOTALL)
         if m:
@@ -541,7 +552,7 @@ class AnkiHelper(QObject):
         self.subsManager = subsManager
         self.msgHandler = MessageHandler()
         self.mpvConf = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mpv.conf")
-        self.mpvManager = MPVMonitor(executable, popenEnv, filePath, self.mpvConf, self.msgHandler)
+        self.mpvManager = MPVMonitor(executable, popenEnv, filePath, self.mpvConf, self.msgHandler, self.subsManager)
         self.mpvExecutable = executable
         self.settings = self.configManager.getSettings()
         self.popenEnv = popenEnv
