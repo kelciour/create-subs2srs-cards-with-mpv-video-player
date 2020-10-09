@@ -404,7 +404,7 @@ class ConfigManager():
             "phrase_pad_start" : 750,
             "phrase_pad_end" : 750,
             "use_mpv" : False,
-            "audio_ext" : "m4a",
+            "audio_ext" : "mp3",
             "subs_target_language": "English",
             "subs_target_language_code": "en",
             "subs_native_language": "",
