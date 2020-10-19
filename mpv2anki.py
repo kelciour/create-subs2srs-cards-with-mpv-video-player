@@ -121,28 +121,28 @@ class SubtitlesHelper():
         self.translationsPath = None
         self.init()
 
+    sub_exts = [".srt", ".ass", ".vtt"]
+
     def init(self):
         self.subs = []
         self.translations = []
 
         subs_base_path = os.path.splitext(self.filePath)[0]
         if self.settings["subs_target_language_code"]:
-            subs_filepattern = subs_base_path + "*" + self.settings["subs_target_language_code"] + "*" + ".srt"
-            subs_filepattern = fix_glob_square_brackets(subs_filepattern)
-            subs_list = glob.glob(subs_filepattern)
+            subs_list = self.find_subtitles(subs_base_path, self.settings["subs_target_language_code"])
             if len(subs_list) > 0:
                 self.subsPath = subs_list[0]
                 self.subs = self.read_subtitles(self.subsPath)
 
         if not self.subs:
-            if os.path.isfile(subs_base_path + ".srt"):
-                self.subsPath = subs_base_path + ".srt"
-                self.subs = self.read_subtitles(self.subsPath)
+            for ext in self.sub_exts:
+                if os.path.isfile(subs_base_path + ext):
+                    self.subsPath = subs_base_path + ext
+                    self.subs = self.read_subtitles(self.subsPath)
+                    break
 
         if self.settings["subs_native_language_code"]:
-            subs_filepattern = subs_base_path + "*" + self.settings["subs_native_language_code"] + "*" + ".srt"
-            subs_filepattern = fix_glob_square_brackets(subs_filepattern)
-            subs_list = glob.glob(subs_filepattern)
+            subs_list = self.find_subtitles(subs_base_path, self.settings["subs_native_language_code"])
             if len(subs_list) > 0:
                 self.translationsPath = subs_list[0]
                 self.translations = self.read_subtitles(self.translationsPath)
@@ -152,6 +152,14 @@ class SubtitlesHelper():
 
         if len(self.translations) != 0:
             self.sync_subtitles()
+
+    def find_subtitles(self, subs_base_path, lang=""):
+        subs_list = []
+        for ext in self.sub_exts:
+            subs_filepattern = subs_base_path + "*" + lang + "*" + ext
+            subs_filepattern = fix_glob_square_brackets(subs_filepattern)
+            subs_list.extend(glob.glob(subs_filepattern))
+        return subs_list
 
     def guess_encoding(self, file_content):
         for enc in srt_encodings:
