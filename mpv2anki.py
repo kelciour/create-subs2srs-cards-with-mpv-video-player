@@ -506,6 +506,7 @@ class MPVMonitor(MPV):
         self.audio_id = "auto"
         self.audio_ffmpeg_id = 0
         self.sub_id = "auto"
+        self.can_be_closed = False
 
         self.command("load-script", os.path.join(os.path.dirname(os.path.abspath(__file__)), "mpv2anki.lua"))
 
@@ -543,12 +544,16 @@ class MPVMonitor(MPV):
     def on_property_sid(self, sub_id=None):
         self.sub_id = sub_id if sub_id != False else "no"
 
+    def on_property_idle_active(self, value):
+        if value and self.can_be_closed:
+            try:
+                self.close()
+            except Exception:
+                # Ignore pywintypes.error: (232, 'WriteFile', 'The pipe is being closed.')
+                pass
+
     def on_end_file(self):
-        try:
-            self.close()
-        except Exception:
-            # Ignore pywintypes.error: (232, 'WriteFile', 'The pipe is being closed.') 
-            pass
+        self.can_be_closed = True
 
 class AnkiHelper(QObject):
 
