@@ -60,6 +60,10 @@ try:
 except:
     from anki.sound import _packagedCmd
 
+sys.path.append(os.path.join(os.path.dirname(__file__), "vendor"))
+
+import pysubs2
+
 if isMac:
     # https://docs.brew.sh/FAQ#my-mac-apps-dont-find-usrlocalbin-utilities
     os.environ['PATH'] = "/usr/local/bin:" + os.environ['PATH']
@@ -149,51 +153,47 @@ class SubtitlesHelper():
         if len(self.translations) != 0:
             self.sync_subtitles()
 
-    def convert_to_unicode(self, file_content):
+    def guess_encoding(self, file_content):
         for enc in srt_encodings:
             try:
                 content = file_content.decode(enc)
-                return (True, content)
+                return (True, enc)
             except UnicodeDecodeError:
                 pass
-        return (False, file_content)
+        return (False, None)
         
     def read_subtitles(self, subsPath):
         content = open(subsPath, 'rb').read()
         if content[:3]==b'\xef\xbb\xbf': # with bom
             content = content[3:]
 
-        ret_code, content = self.convert_to_unicode(content)
+        ret_code, enc = self.guess_encoding(content)
         if ret_code == False:
             showWarning("Can't decode subtitles. Please convert subtitles to UTF-8 encoding.")
             pass
 
-        subs = []
-        content = re.sub(r'\r\n', '\n', content)
-        content = re.sub(r'\n\s*\n+', '\n\n', content)
-        content = re.sub(r'(^\d+\n\d+:\d+:\d+,\d+\s+-->\s+\d+:\d+:\d+,\d+\s*\n)', r'#~~~~~~~~~~~~~~#\1', content, flags=re.M)
-        for sub in content.strip().split('#~~~~~~~~~~~~~~#'):
-            if not sub.strip():
-                continue
-            try:
-                sub_chunks = sub.split('\n')
-                if (len(sub_chunks) >= 3):
-                    sub_timecode =  sub_chunks[1].split(' --> ')
-                    sub_start = srt_time_to_seconds(sub_timecode[0].strip())
-                    sub_end = srt_time_to_seconds(sub_timecode[1].strip())
-                    sub_content = "\n".join(sub_chunks[2:]).replace("\t", " ")
-                    sub_content = re.sub(r"<[^>]+>", "", sub_content)
-                    sub_content = re.sub(r"^-", r"- ", sub_content)
-                    sub_content = re.sub(r"(\W)-([^\W])", r"\1 - \2", sub_content, flags=re.UNICODE)
-                    sub_content = re.sub(r"  +", " ", sub_content)
-                    sub_content = sub_content.replace("\n", " ").strip()
+        try:
+            subs = pysubs2.load(subsPath, encoding=enc)
+        except Exception as e:
+            showWarning("An error occurred while parsing the subtitle file:\n'%s'.\n\n%s" % (os.path.basename(subsPath), e), parent=mw)
+            self.status_code = "error"
+            return []
 
-                    if len(sub_content) > 0:
-                        subs.append((sub_start, sub_end, sub_content))
-            except:
-                showWarning("An error occurred while parsing the subtitle file:\n'%s'.\n\nIncorrect subtitle:\n%s" % (os.path.basename(subsPath), sub), parent=mw)
-                self.status_code = "error"
-                return []
+        subs2 = []
+        for line in subs:
+            subs2.append((line.start / 1000, line.end / 1000, line.text))
+
+        subs = []
+        for sub_start, sub_end, sub_text in subs2:
+            sub_chunks = sub_text.split('\\N')
+            sub_content = "\n".join(sub_chunks).replace("\t", " ")
+            sub_content = re.sub(r"<[^>]+>", "", sub_content)
+            sub_content = re.sub(r"^-", r"- ", sub_content)
+            sub_content = re.sub(r"(\W)-([^\W])", r"\1 - \2", sub_content, flags=re.UNICODE)
+            sub_content = re.sub(r"  +", " ", sub_content)
+            sub_content = sub_content.replace("\n", " ").strip()
+            if len(sub_content) > 0:
+                subs.append((sub_start, sub_end, sub_content))
 
         return subs
 
