@@ -117,6 +117,8 @@ function create_anki_card()
 
     if start_timestamp ~= nil and end_timestamp ~= nil and end_timestamp > start_timestamp then
         status_msg = "[mpv2anki] " .. time_pos .. " # " .. start_timestamp .. " # " .. end_timestamp .. " # " .. sub_text
+    elseif start_timestamp ~= nil and start_timestamp < time_pos then
+        status_msg = "[mpv2anki] " .. time_pos .. " # " .. start_timestamp .. " # " .. "-1" .. " # " .. sub_text
     else
         status_msg = "[mpv2anki] " .. time_pos .. " # " .. "-1" .. " # " .. "-1" .. " # " .. sub_text
     end

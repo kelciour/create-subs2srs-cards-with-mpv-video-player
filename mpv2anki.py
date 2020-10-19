@@ -733,6 +733,13 @@ class AnkiHelper(QObject):
         sub_pad_start = 0
         sub_pad_end = 0
 
+        if timeStart >= 0 and timeEnd == -1:
+            if timePos - timeStart > 60:
+                self.mpvManager.command("show-text", "Error: Card duration > 60 seconds.")
+                return
+            else:
+                timeEnd = timePos
+
         if sub_id is None:
             if timeStart >= 0 and timeEnd >= 0:
                 noteId = "%s_%s-%s" % (format_filename(source), secondsToFilename(timeStart), secondsToFilename(timeEnd))
