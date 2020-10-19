@@ -53,7 +53,6 @@ from anki.hooks import addHook
 from aqt.studydeck import StudyDeck
 from distutils.spawn import find_executable
 from anki.utils import isWin
-from anki.mpv import *
 
 from . import icons_rc
 
@@ -65,6 +64,8 @@ except:
 sys.path.append(os.path.join(os.path.dirname(__file__), "vendor"))
 
 import pysubs2
+
+from mpv import *
 
 if isMac:
     # https://docs.brew.sh/FAQ#my-mac-apps-dont-find-usrlocalbin-utilities
