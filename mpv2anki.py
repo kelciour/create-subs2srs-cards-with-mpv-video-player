@@ -96,9 +96,10 @@ def getVideoFile():
     if url.isLocalFile():
         filePath = url.toLocalFile()
         dirname = os.path.dirname(filePath)
+        return filePath, True
     else:
         filePath = url.toString()
-    return filePath
+        return filePath, False
 
 def srt_time_to_seconds(time):
     split_time = time.split(',')
@@ -118,15 +119,6 @@ def fix_glob_square_brackets(glob_pattern):
     glob_pattern = re.sub(r'(?<!\[)\]', '[]]', glob_pattern)
 
     return glob_pattern
-
-def format_filename(filename):
-    if re.search(r'[\\/:"*?<>|]+', filename):
-        filename = sha1(filename.encode('utf-8')).hexdigest()
-    else:
-        filename = filename.replace('[', '').replace(']', '').replace(' ', '_')
-        filename = re.sub(r'^[_-]+', '', filename)
-        filename = filename.strip()
-    return filename
 
 class SubtitlesHelper():
     def __init__(self, filePath, configManager):
@@ -569,7 +561,7 @@ class MPVMonitor(MPV):
 
 class AnkiHelper(QObject):
 
-    def __init__(self, executable, popenEnv, filePath, configManager, subsManager):
+    def __init__(self, executable, popenEnv, filePath, is_local_file, configManager, subsManager):
         QObject.__init__(self, mw)
         self.filePath = filePath
         self.configManager = configManager
@@ -580,6 +572,7 @@ class AnkiHelper(QObject):
         self.mpvExecutable = executable
         self.settings = self.configManager.getSettings()
         self.popenEnv = popenEnv
+        self.is_local_file = is_local_file
 
         self.initFieldsMapping()
 
@@ -610,8 +603,17 @@ class AnkiHelper(QObject):
         if self.settings["create_clips_with_phrases"]:
             self.addNewCard(timePos, timeStart, timeEnd, subText, key="phrase_", phraseMode=True)
 
+    def format_filename(self, filename):
+        if not self.is_local_file or re.search(r'[\\/:"*?<>|]+', filename):
+            filename = sha1(filename.encode('utf-8')).hexdigest()
+        else:
+            filename = filename.replace('[', '').replace(']', '').replace(' ', '_')
+            filename = re.sub(r'^[_-]+', '', filename)
+            filename = filename.strip()
+        return filename
+
     def subprocess_image(self, source, timePos, subprocess_calls, sub="no", suffix=""):
-        image = "%s_%s%s.jpg" % (format_filename(source), secondsToFilename(timePos), suffix)
+        image = "%s_%s%s.jpg" % (self.format_filename(source), secondsToFilename(timePos), suffix)
         imagePath = os.path.join(mw.col.media.dir(), image)
         if not self.settings["use_mpv"] and ffmpeg_executable and sub == "no":
             argv = ["ffmpeg"]
@@ -634,7 +636,7 @@ class AnkiHelper(QObject):
         return image
 
     def subprocess_audio(self, source, sub_start, sub_end, aid, aid_ff, subprocess_calls):
-        audio = "%s_%s-%s.%s" % (format_filename(source), secondsToFilename(sub_start), secondsToFilename(sub_end), self.settings["audio_ext"])
+        audio = "%s_%s-%s.%s" % (self.format_filename(source), secondsToFilename(sub_start), secondsToFilename(sub_end), self.settings["audio_ext"])
         audioPath = os.path.join(mw.col.media.dir(), audio)
         if not self.settings["use_mpv"] and ffmpeg_executable:
             argv = ["ffmpeg"]
@@ -657,7 +659,7 @@ class AnkiHelper(QObject):
         return audio
 
     def get_video_filename(self, source, sub_start, sub_end, video_format):
-        video = "%s_%s-%s.%s" % (format_filename(source), secondsToFilename(sub_start), secondsToFilename(sub_end), video_format)
+        video = "%s_%s-%s.%s" % (self.format_filename(source), secondsToFilename(sub_start), secondsToFilename(sub_end), video_format)
         return video
 
     def subprocess_video(self, source, sub_start, sub_end, aid, aid_ff, video_format, key, subprocess_calls):
@@ -742,9 +744,9 @@ class AnkiHelper(QObject):
 
         if sub_id is None:
             if timeStart >= 0 and timeEnd >= 0:
-                noteId = "%s_%s-%s" % (format_filename(source), secondsToFilename(timeStart), secondsToFilename(timeEnd))
+                noteId = "%s_%s-%s" % (self.format_filename(source), secondsToFilename(timeStart), secondsToFilename(timeEnd))
             else:
-                noteId = "%s_%s" % (format_filename(source), secondsToFilename(timePos))
+                noteId = "%s_%s" % (self.format_filename(source), secondsToFilename(timePos))
         else:
             if not phraseMode:
                 sub_start, sub_end, subText = self.subsManager.get_subtitle(sub_id)
@@ -771,7 +773,7 @@ class AnkiHelper(QObject):
             prev_sub_start -= sub_pad_start
             next_sub_end += sub_pad_end
 
-            noteId = "%s_%s-%s" % (format_filename(source), secondsToFilename(sub_start), secondsToFilename(sub_end))
+            noteId = "%s_%s-%s" % (self.format_filename(source), secondsToFilename(sub_start), secondsToFilename(sub_end))
 
         if timeStart >= 0 and timeEnd >= 0:
             sub_start = timeStart
@@ -1265,13 +1267,13 @@ def openVideoWithMPV():
     mainWindow = MainWindow(configManager, parent=mw)
 
     if mainWindow.exec_():
-        filePath = getVideoFile()
+        filePath, is_local_file = getVideoFile()
         if not filePath:
             return
 
         subsManager = SubtitlesHelper(filePath, configManager)
         if subsManager.status_code != "error":
-            AnkiHelper(executable, popenEnv, filePath, configManager, subsManager)
+            AnkiHelper(executable, popenEnv, filePath, is_local_file, configManager, subsManager)
 
     mw.reset()
 
