@@ -538,7 +538,7 @@ class MPVMonitor(MPV):
             self.audio_ffmpeg_id = 0
         elif audio_id == "auto":
             track_count = int(self.get_property("track-list/count"))
-            for i in range(1, track_count + 1):
+            for i in range(0, track_count):
                 track_type = self.get_property("track-list/%d/type" % i)
                 track_index = int(self.get_property("track-list/%d/ff-index" % i))
                 track_selected = self.get_property("track-list/%d/selected" % i)
