@@ -496,26 +496,16 @@ class MPVMonitor(MPV):
         self.executable = executable
         self.popenEnv = popenEnv
         self.subsManager = subsManager
-
-        try:
-            no_config_idx = self.default_argv.index("--no-config")
-            self.default_argv.remove("--no-config")
-        except ValueError:
-            no_config_idx = -1
+        self.mpvConf = mpvConf
+        self.default_argv.append('--config-dir=%s' % self.mpvConf)
 
         super().__init__(window_id=None, debug=False)
 
-        if no_config_idx >= 0:
-            self.default_argv.insert(no_config_idx, "--no-config")
-
         self.filePath = filePath
-        self.mpvConf = mpvConf
         self.msgHandler = msgHandler
         self.audio_id = "auto"
         self.audio_ffmpeg_id = 0
         self.sub_id = "auto"
-
-        self.set_property("include", self.mpvConf)
 
         self.command("load-script", os.path.join(os.path.dirname(os.path.abspath(__file__)), "mpv2anki.lua"))
 
@@ -568,7 +558,7 @@ class AnkiHelper(QObject):
         self.configManager = configManager
         self.subsManager = subsManager
         self.msgHandler = MessageHandler()
-        self.mpvConf = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mpv.conf")
+        self.mpvConf = os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_files", "mpv")
         self.mpvManager = MPVMonitor(executable, popenEnv, filePath, self.mpvConf, self.msgHandler, self.subsManager)
         self.mpvExecutable = executable
         self.settings = self.configManager.getSettings()
