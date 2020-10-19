@@ -38,6 +38,8 @@ import re
 import subprocess
 import sys
 
+from hashlib import sha1
+
 # import the main window object (mw) from aqt
 from aqt import mw
 # import the "get file" tool from utils.py
@@ -88,7 +90,15 @@ def secondsToFilename(seconds):
 def getVideoFile():
     key = (_("Video") +
            " (*.avi *.mkv *.mp4 *.mov *.mpg *.mpeg *.webm)")
-    return getFile(None, _("Open Video"), None, key, key="video")
+    dirkey = "1213145732" + "Directory"
+    dirname = mw.pm.profile.get(dirkey, "")
+    url = QFileDialog.getOpenFileUrl(None, _("Open Video File or URL"), directory=QUrl.fromLocalFile(dirname), filter=key)[0]
+    if url.isLocalFile():
+        filePath = url.toLocalFile()
+        dirname = os.path.dirname(filePath)
+    else:
+        filePath = url.toString()
+    return filePath
 
 def srt_time_to_seconds(time):
     split_time = time.split(',')
@@ -110,7 +120,13 @@ def fix_glob_square_brackets(glob_pattern):
     return glob_pattern
 
 def format_filename(filename):
-    return filename.strip().replace('[', '').replace(']', '').replace(' ', '_')
+    if re.search(r'[\\/:"*?<>|]+', filename):
+        filename = sha1(filename.encode('utf-8')).hexdigest()
+    else:
+        filename = filename.replace('[', '').replace(']', '').replace(' ', '_')
+        filename = re.sub(r'^[_-]+', '', filename)
+        filename = filename.strip()
+    return filename
 
 class SubtitlesHelper():
     def __init__(self, filePath, configManager):
@@ -647,7 +663,7 @@ class AnkiHelper(QObject):
     def subprocess_video(self, source, sub_start, sub_end, aid, aid_ff, video_format, key, subprocess_calls):
         video = self.get_video_filename(source, sub_start, sub_end, video_format)
         videoPath = os.path.join(mw.col.media.dir(), video)
-        if ffmpeg_executable:
+        if not self.settings["use_mpv"] and ffmpeg_executable:
             argv = ["ffmpeg"]
             argv += ["-ss", secondsToTimestamp(sub_start)]
             argv += ["-i", self.filePath]
