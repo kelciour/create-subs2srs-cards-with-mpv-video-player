@@ -144,7 +144,7 @@ class MPVBase:
         --input-unix-socket option.
         """
         if isWin:
-            self._sock_filename = "ankimpv"
+            self._sock_filename = "mpv2anki"
             return
         fd, self._sock_filename = tempfile.mkstemp(prefix="mpv.")
         os.close(fd)
@@ -162,7 +162,7 @@ class MPVBase:
                 # named pipe
                 try:
                     self._sock = win32file.CreateFile(
-                        r"\\.\pipe\ankimpv",
+                        r"\\.\pipe\mpv2anki",
                         win32file.GENERIC_READ | win32file.GENERIC_WRITE,
                         0,
                         None,
@@ -600,7 +600,3 @@ class MPV(MPVBase):
     def set_property(self, name, value):
         """Set the value of property `name`."""
         return self.command("set_property", name, value)
-
-
-# alias this module for backwards compat
-sys.modules["anki.mpv"] = sys.modules["aqt.mpv"]
