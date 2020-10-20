@@ -498,6 +498,7 @@ class MPVMonitor(MPV):
         self.subsManager = subsManager
         self.mpvConf = mpvConf
         self.default_argv.append('--config-dir=%s' % self.mpvConf)
+        self.can_be_closed = False
 
         super().__init__(window_id=None, debug=False)
 
@@ -506,7 +507,6 @@ class MPVMonitor(MPV):
         self.audio_id = "auto"
         self.audio_ffmpeg_id = 0
         self.sub_id = "auto"
-        self.can_be_closed = False
 
         self.command("load-script", os.path.join(os.path.dirname(os.path.abspath(__file__)), "mpv2anki.lua"))
 
