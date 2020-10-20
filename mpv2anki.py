@@ -508,6 +508,11 @@ class MPVMonitor(MPV):
         self.audio_ffmpeg_id = 0
         self.sub_id = "auto"
 
+        self.version = self.get_property("mpv-version")
+        m = re.search(r'^mpv (\d+\.\d+)', self.version)
+        assert m, self.version
+        self.version = float(m.group(1))
+
         self.command("load-script", os.path.join(os.path.dirname(os.path.abspath(__file__)), "mpv2anki.lua"))
 
         self.command("loadfile", self.filePath, "append-play")
