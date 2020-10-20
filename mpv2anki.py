@@ -43,7 +43,7 @@ from hashlib import sha1
 # import the main window object (mw) from aqt
 from aqt import mw
 # import the "get file" tool from utils.py
-from aqt.utils import getFile, showWarning, isMac
+from aqt.utils import getFile, showWarning, isMac, isWin
 # import all of the Qt GUI library
 from aqt.qt import *
 
@@ -1241,6 +1241,12 @@ class MainWindow(QDialog):
         self.accept()
 
 def openVideoWithMPV():
+    env = os.environ.copy()
+
+    if isWin:
+        path = os.environ['PATH'].split(os.pathsep)
+        os.environ['PATH'] = os.pathsep.join(path[1:])
+
     executable = find_executable("mpv")
     popenEnv = os.environ.copy()
 
@@ -1253,8 +1259,11 @@ def openVideoWithMPV():
         mpvPath, popenEnv = _packagedCmd(["mpv"])
         executable = mpvPath[0]
     else:
+        popenEnv['PATH'] = os.environ['PATH']
         if "LD_LIBRARY_PATH" in popenEnv:
             del popenEnv['LD_LIBRARY_PATH']
+
+    os.environ['PATH'] = env['PATH']
 
     if executable == None:
         return showWarning("Please install <a href='https://mpv.io'>mpv</a> and add it to the PATH environment variable on Windows.", parent=mw)
