@@ -1249,9 +1249,15 @@ class MainWindow(QDialog):
         self.saveSettings()
         self.done(0)
 
+    def validate(self):
+        return self.configManager.getFieldsMapping(self.settings["default_model"]) != {}
+
     def start(self):
         self.saveSettings()
-        self.accept()
+        if self.validate():
+            self.accept()
+        else:
+            showWarning("No fields were mapped. Please click on the gear icon and map some fields.")
 
 def openVideoWithMPV():
     env = os.environ.copy()
