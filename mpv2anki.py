@@ -743,6 +743,13 @@ class AnkiHelper(QObject):
             else:
                 timeEnd = timePos
 
+        if timeStart == -1 and timeEnd == -1 and self.mpvManager.version >= 0.32:
+            try:
+                timeStart = float(self.mpvManager.get_property("sub-start"))
+                timeEnd = float(self.mpvManager.get_property("sub-end"))
+            except MPVCommandError:
+                pass
+
         if sub_id is None:
             if timeStart >= 0 and timeEnd >= 0:
                 noteId = "%s_%s-%s" % (self.format_filename(source), secondsToFilename(timeStart), secondsToFilename(timeEnd))
