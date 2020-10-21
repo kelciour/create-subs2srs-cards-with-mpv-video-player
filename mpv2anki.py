@@ -498,7 +498,6 @@ class MPVMonitor(MPV):
         self.popenEnv = popenEnv
         self.subsManager = subsManager
         self.mpvConf = mpvConf
-        self.default_argv.append('--config-dir=%s' % self.mpvConf)
         self.can_be_closed = False
 
         super().__init__(window_id=None, debug=False)
@@ -513,6 +512,8 @@ class MPVMonitor(MPV):
         m = re.search(r'^mpv (\d+\.\d+)', self.version)
         assert m, self.version
         self.version = float(m.group(1))
+
+        self.set_property("include", os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_files", "mpv", "mpv.conf"))
 
         self.command("load-script", os.path.join(os.path.dirname(os.path.abspath(__file__)), "mpv2anki.lua"))
 
@@ -550,16 +551,13 @@ class MPVMonitor(MPV):
     def on_property_sid(self, sub_id=None):
         self.sub_id = sub_id if sub_id != False else "no"
 
-    def on_property_idle_active(self, value):
-        if value and self.can_be_closed:
-            try:
-                self.close()
-            except Exception:
-                # Ignore pywintypes.error: (232, 'WriteFile', 'The pipe is being closed.')
-                pass
-
     def on_end_file(self):
         self.can_be_closed = True
+        try:
+            self.close()
+        except Exception:
+            # Ignore pywintypes.error: (232, 'WriteFile', 'The pipe is being closed.')
+            pass
 
 class AnkiHelper(QObject):
 
