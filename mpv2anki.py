@@ -38,6 +38,7 @@ import re
 import subprocess
 import sys
 
+from os.path import expanduser
 from hashlib import sha1
 
 # import the main window object (mw) from aqt
@@ -92,7 +93,7 @@ def getVideoFile():
     key = (_("Video") +
            " (*.avi *.mkv *.mp4 *.mov *.mpg *.mpeg *.webm)")
     dirkey = "1213145732" + "Directory"
-    dirname = mw.pm.profile.get(dirkey, "")
+    dirname = mw.pm.profile.get(dirkey, expanduser("~"))
     url = QFileDialog.getOpenFileUrl(None, _("Open Video File or URL"), directory=QUrl.fromLocalFile(dirname), filter=key)[0]
     if url.isLocalFile():
         filePath = url.toLocalFile()
