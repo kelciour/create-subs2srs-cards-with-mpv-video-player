@@ -498,7 +498,6 @@ class MPVMonitor(MPV):
         self.popenEnv = popenEnv
         self.subsManager = subsManager
         self.mpvConf = mpvConf
-        self.can_be_closed = False
 
         super().__init__(window_id=None, debug=False)
 
@@ -551,8 +550,7 @@ class MPVMonitor(MPV):
     def on_property_sid(self, sub_id=None):
         self.sub_id = sub_id if sub_id != False else "no"
 
-    def on_end_file(self):
-        self.can_be_closed = True
+    def on_shutdown(self):
         try:
             self.close()
         except Exception:

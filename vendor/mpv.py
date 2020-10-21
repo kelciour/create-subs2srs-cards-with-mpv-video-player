@@ -238,6 +238,7 @@ class MPVBase:
                         time.sleep(0.1)
                         continue
                     elif err.args[0] == winerror.ERROR_BROKEN_PIPE:
+                        self._handle_message({'event': 'shutdown'})
                         return
                     else:
                         raise
@@ -249,7 +250,8 @@ class MPVBase:
                         if not b:
                             break
                         buf += b
-                    except ConnectionResetError:
+                    except ConnectionError:
+                        self._handle_message({'event': 'shutdown'})
                         return
 
             newline = buf.find(b"\n")
