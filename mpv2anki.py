@@ -513,7 +513,7 @@ class MPVMonitor(MPV):
         assert m, self.version
         self.version = float(m.group(1))
 
-        self.set_property("include", os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_files", "mpv", "mpv.conf"))
+        self.set_property("include", self.mpvConf)
 
         self.command("load-script", os.path.join(os.path.dirname(os.path.abspath(__file__)), "mpv2anki.lua"))
 
@@ -569,7 +569,7 @@ class AnkiHelper(QObject):
         self.configManager = configManager
         self.subsManager = subsManager
         self.msgHandler = MessageHandler()
-        self.mpvConf = os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_files", "mpv")
+        self.mpvConf = os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_files", "mpv.conf")
         self.mpvManager = MPVMonitor(executable, popenEnv, filePath, self.mpvConf, self.msgHandler, self.subsManager)
         self.mpvExecutable = executable
         self.settings = self.configManager.getSettings()
