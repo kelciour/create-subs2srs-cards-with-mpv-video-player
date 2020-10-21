@@ -98,6 +98,7 @@ def getVideoFile():
     if url.isLocalFile():
         filePath = url.toLocalFile()
         dirname = os.path.dirname(filePath)
+        mw.pm.profile[dirkey] = dirname
         return filePath, True
     else:
         filePath = url.toString()
