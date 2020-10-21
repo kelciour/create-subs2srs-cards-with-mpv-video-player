@@ -364,7 +364,7 @@ class MPVBase:
         except Empty:
             return None
 
-    def _send_request(self, message, timeout=None, _retry=1):
+    def _send_request(self, message, timeout=None, _retry=0):
         """Send a command to the mpv process and collect the result."""
         self.ensure_running()
         try:
