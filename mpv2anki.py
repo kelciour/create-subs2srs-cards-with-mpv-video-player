@@ -551,6 +551,9 @@ class MPVMonitor(MPV):
     def on_property_sid(self, sub_id=None):
         self.sub_id = sub_id if sub_id != False else "no"
 
+    def on_start_file(self):
+        self.filePath = self.get_property("path")
+
     def on_shutdown(self):
         try:
             self.close()
