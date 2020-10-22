@@ -238,7 +238,7 @@ class SubtitlesHelper():
 
                 if (sub_start - prev_sub_end) <= 2 and (sub_end - prev_sub_start) < 15 and \
                     sub_content[0] not in ['"', "'", "(", "[", "-", u"“", u'♪'] and \
-                    (prev_sub_content[-1] not in ['.', "!", "?", ")", ']', u'”'] or \
+                    (prev_sub_content[-1] not in ['.', "!", "?", ")", ']', u'”', '"'] or \
                     (prev_sub_content[-3:] == "..." and (sub_content[:3] == "..." or sub_content[0].islower() or re.match(r"^I\b", sub_content)))):
 
                     subs[-1] = [prev_sub_start, sub_end, prev_sub_content + " " + sub_content]
