@@ -124,17 +124,17 @@ def fix_glob_square_brackets(glob_pattern):
     return glob_pattern
 
 class SubtitlesHelper():
-    def __init__(self, filePath, configManager):
-        self.filePath = filePath
+    def __init__(self, configManager):
         self.settings = configManager.getSettings()
-        self.status_code = "success"
-        self.subsPath = None
-        self.translationsPath = None
-        self.init()
 
     sub_exts = [".srt", ".ass", ".vtt"]
 
-    def init(self):
+    def init(self, filePath):
+        self.filePath = filePath
+        self.subsPath = None
+        self.translationsPath = None
+        self.status_code = "success"
+
         self.subs = []
         self.translations = []
 
@@ -491,6 +491,7 @@ class ConfigManager():
 # Fix for ... cannot be converted to PyQt5.QtCore.QObject in this context
 class MessageHandler(QObject):
     create_anki_card = pyqtSignal(float, float, float, str)
+    update_file_path = pyqtSignal(str)
 
 class MPVMonitor(MPV):
 
@@ -499,11 +500,11 @@ class MPVMonitor(MPV):
         self.popenEnv = popenEnv
         self.subsManager = subsManager
         self.mpvConf = mpvConf
+        self.msgHandler = msgHandler
+        self.filePath = filePath
 
         super().__init__(window_id=None, debug=False)
 
-        self.filePath = filePath
-        self.msgHandler = msgHandler
         self.audio_id = "auto"
         self.audio_ffmpeg_id = 0
         self.sub_id = "auto"
@@ -518,12 +519,6 @@ class MPVMonitor(MPV):
         self.command("load-script", os.path.join(os.path.dirname(os.path.abspath(__file__)), "mpv2anki.lua"))
 
         self.command("loadfile", self.filePath, "append-play")
-
-        if self.subsManager.subsPath:
-            self.command("sub-add", self.subsManager.subsPath)
-
-        if self.subsManager.translationsPath:
-            self.command("sub-add", self.subsManager.translationsPath)
 
     def on_property_term_status_msg(self, statusMsg=None):
         m = re.match(r"^\[mpv2anki\] ([^#]+) # ([^#]+) # ([^#]+) # (.*)$", statusMsg, re.DOTALL)
@@ -553,6 +548,12 @@ class MPVMonitor(MPV):
 
     def on_start_file(self):
         self.filePath = self.get_property("path")
+        self.subsManager.init(self.filePath)
+        if self.subsManager.subsPath:
+            self.command("sub-add", self.subsManager.subsPath)
+        if self.subsManager.translationsPath:
+            self.command("sub-add", self.subsManager.translationsPath)
+        self.msgHandler.update_file_path.emit(self.filePath)
 
     def on_shutdown(self):
         try:
@@ -563,11 +564,11 @@ class MPVMonitor(MPV):
 
 class AnkiHelper(QObject):
 
-    def __init__(self, executable, popenEnv, filePath, is_local_file, configManager, subsManager):
+    def __init__(self, executable, popenEnv, filePath, is_local_file, configManager):
         QObject.__init__(self, mw)
         self.filePath = filePath
         self.configManager = configManager
-        self.subsManager = subsManager
+        self.subsManager = SubtitlesHelper(configManager)
         self.msgHandler = MessageHandler()
         self.mpvConf = os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_files", "mpv.conf")
         self.mpvManager = MPVMonitor(executable, popenEnv, filePath, self.mpvConf, self.msgHandler, self.subsManager)
@@ -579,6 +580,7 @@ class AnkiHelper(QObject):
         self.initFieldsMapping()
 
         self.msgHandler.create_anki_card.connect(self.createAnkiCard)
+        self.msgHandler.update_file_path.connect(self.updateFilePath)
 
         addHook("unloadProfile", self.mpvManager.close)
 
@@ -598,6 +600,13 @@ class AnkiHelper(QObject):
                 fieldsMapPhrase[v] = []
             fieldsMapPhrase[v].append(k)
         self.fieldsMap["phrase_default_model"] = fieldsMapPhrase
+
+    def updateFilePath(self, filePath):
+        self.filePath = filePath
+        if '://' not in self.filePath:
+            self.is_local_file = True
+        else:
+            self.is_local_file = False
 
     def createAnkiCard(self, timePos, timeStart, timeEnd, subText):
         self.addNewCard(timePos, timeStart, timeEnd, subText)
@@ -1294,10 +1303,7 @@ def openVideoWithMPV():
         filePath, is_local_file = getVideoFile()
         if not filePath:
             return
-
-        subsManager = SubtitlesHelper(filePath, configManager)
-        if subsManager.status_code != "error":
-            AnkiHelper(executable, popenEnv, filePath, is_local_file, configManager, subsManager)
+        AnkiHelper(executable, popenEnv, filePath, is_local_file, configManager)
 
     mw.reset()
 
