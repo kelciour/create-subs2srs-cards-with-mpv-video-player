@@ -94,15 +94,12 @@ def getVideoFile():
            " (*.avi *.mkv *.mp4 *.mov *.mpg *.mpeg *.webm)")
     dirkey = "1213145732" + "Directory"
     dirname = mw.pm.profile.get(dirkey, expanduser("~"))
-    url = QFileDialog.getOpenFileUrl(None, _("Open Video File or URL"), directory=QUrl.fromLocalFile(dirname), filter=key)[0]
-    if url.isLocalFile():
-        filePath = url.toLocalFile()
+    urls = QFileDialog.getOpenFileUrls(None, _("Open Video File or URL"), directory=QUrl.fromLocalFile(dirname), filter=key)[0]
+    if urls and urls[0].isLocalFile():
+        filePath = urls[0].toLocalFile()
         dirname = os.path.dirname(filePath)
         mw.pm.profile[dirkey] = dirname
-        return filePath, True
-    else:
-        filePath = url.toString()
-        return filePath, False
+    return urls
 
 def srt_time_to_seconds(time):
     split_time = time.split(',')
@@ -495,13 +492,12 @@ class MessageHandler(QObject):
 
 class MPVMonitor(MPV):
 
-    def __init__(self, executable, popenEnv, filePath, mpvConf, msgHandler, subsManager):
+    def __init__(self, executable, popenEnv, fileUrls, mpvConf, msgHandler, subsManager):
         self.executable = executable
         self.popenEnv = popenEnv
         self.subsManager = subsManager
         self.mpvConf = mpvConf
         self.msgHandler = msgHandler
-        self.filePath = filePath
 
         super().__init__(window_id=None, debug=False)
 
@@ -518,7 +514,12 @@ class MPVMonitor(MPV):
 
         self.command("load-script", os.path.join(os.path.dirname(os.path.abspath(__file__)), "mpv2anki.lua"))
 
-        self.command("loadfile", self.filePath, "append-play")
+        for url in fileUrls:
+            if url.isLocalFile():
+                filePath = url.toLocalFile()
+            else:
+                filePath  = url.toString()
+            self.command("loadfile", filePath, "append-play")
 
     def on_property_term_status_msg(self, statusMsg=None):
         m = re.match(r"^\[mpv2anki\] ([^#]+) # ([^#]+) # ([^#]+) # (.*)$", statusMsg, re.DOTALL)
@@ -564,23 +565,23 @@ class MPVMonitor(MPV):
 
 class AnkiHelper(QObject):
 
-    def __init__(self, executable, popenEnv, filePath, is_local_file, configManager):
+    def __init__(self, executable, popenEnv, fileUrls, configManager):
         QObject.__init__(self, mw)
-        self.filePath = filePath
         self.configManager = configManager
         self.subsManager = SubtitlesHelper(configManager)
+
         self.msgHandler = MessageHandler()
-        self.mpvConf = os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_files", "mpv.conf")
-        self.mpvManager = MPVMonitor(executable, popenEnv, filePath, self.mpvConf, self.msgHandler, self.subsManager)
-        self.mpvExecutable = executable
-        self.settings = self.configManager.getSettings()
-        self.popenEnv = popenEnv
-        self.is_local_file = is_local_file
-
-        self.initFieldsMapping()
-
         self.msgHandler.create_anki_card.connect(self.createAnkiCard)
         self.msgHandler.update_file_path.connect(self.updateFilePath)
+
+        self.mpvConf = os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_files", "mpv.conf")
+        self.mpvExecutable = executable
+        self.mpvManager = MPVMonitor(executable, popenEnv, fileUrls, self.mpvConf, self.msgHandler, self.subsManager)
+
+        self.settings = self.configManager.getSettings()
+        self.popenEnv = popenEnv
+
+        self.initFieldsMapping()
 
         addHook("unloadProfile", self.mpvManager.close)
 
@@ -1300,10 +1301,10 @@ def openVideoWithMPV():
     mainWindow = MainWindow(configManager, parent=mw)
 
     if mainWindow.exec_():
-        filePath, is_local_file = getVideoFile()
-        if not filePath:
+        fileUrls = getVideoFile()
+        if not fileUrls:
             return
-        AnkiHelper(executable, popenEnv, filePath, is_local_file, configManager)
+        AnkiHelper(executable, popenEnv, fileUrls, configManager)
 
     mw.reset()
 
