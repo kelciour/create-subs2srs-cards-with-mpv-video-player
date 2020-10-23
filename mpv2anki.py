@@ -580,7 +580,7 @@ class AnkiHelper(QObject):
 
         self.initFieldsMapping()
 
-        addHook("unloadProfile", self.mpvManager.close)
+        addHook("unloadProfile", self.mpvManager.on_shutdown)
 
     def initFieldsMapping(self):
         self.fieldsMap = {}
