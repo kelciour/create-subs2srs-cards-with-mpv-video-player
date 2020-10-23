@@ -90,7 +90,7 @@ def secondsToFilename(seconds):
     return secondsToTimestamp(seconds).replace(":", ".")
 
 def getVideoFile():
-    key = ("Video (*.avi *.mkv *.mp4 *.mov *.mpg *.mpeg *.webm);;All Files (*.*)")
+    key = ("Media (*.avi *.mkv *.mp4 *.mov *.mpg *.mpeg *.webm *.m4a *.mp3 *.wav);;All Files (*.*)")
     dirkey = "1213145732" + "Directory"
     dirname = mw.pm.profile.get(dirkey, expanduser("~"))
     urls = QFileDialog.getOpenFileUrls(None, _("Open Video File or URL"), directory=QUrl.fromLocalFile(dirname), filter=key)[0]
@@ -549,6 +549,8 @@ class MPVMonitor(MPV):
         if self.subsManager.translationsPath:
             self.command("sub-add", self.subsManager.translationsPath)
         self.msgHandler.update_file_path.emit(self.filePath)
+        if not self.get_property("vo-configured"):
+            self.set_property("force-window", "yes")
 
     def on_shutdown(self):
         try:
