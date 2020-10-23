@@ -589,7 +589,7 @@ class MPV(MPVBase):
     #
     # Public API
     #
-    def command(self, *args, timeout=1):
+    def command(self, *args, timeout=2.5):
         """Execute a single command on the mpv process and return the result."""
         return self._send_request({"command": list(args)}, timeout=timeout)
 
