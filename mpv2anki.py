@@ -576,6 +576,8 @@ class AnkiHelper(QObject):
         self.settings = self.configManager.getSettings()
         self.popenEnv = popenEnv
 
+        self.is_sub_start = True
+
         self.initFieldsMapping()
 
         addHook("unloadProfile", self.mpvManager.close)
@@ -749,11 +751,12 @@ class AnkiHelper(QObject):
             else:
                 timeEnd = timePos
 
-        if timeStart == -1 and timeEnd == -1:
+        if self.is_sub_start and timeStart == -1 and timeEnd == -1: # mpv >= v0.30.0
             try:
                 timeStart = float(self.mpvManager.get_property("sub-start"))
                 timeEnd = float(self.mpvManager.get_property("sub-end"))
             except MPVCommandError:
+                self.is_sub_start = False
                 pass
 
         if sub_id is None:
