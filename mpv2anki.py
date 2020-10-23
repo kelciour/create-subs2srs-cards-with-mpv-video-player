@@ -90,8 +90,7 @@ def secondsToFilename(seconds):
     return secondsToTimestamp(seconds).replace(":", ".")
 
 def getVideoFile():
-    key = (_("Video") +
-           " (*.avi *.mkv *.mp4 *.mov *.mpg *.mpeg *.webm)")
+    key = ("Video (*.avi *.mkv *.mp4 *.mov *.mpg *.mpeg *.webm);;All Files (*.*)")
     dirkey = "1213145732" + "Directory"
     dirname = mw.pm.profile.get(dirkey, expanduser("~"))
     urls = QFileDialog.getOpenFileUrls(None, _("Open Video File or URL"), directory=QUrl.fromLocalFile(dirname), filter=key)[0]
