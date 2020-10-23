@@ -505,11 +505,6 @@ class MPVMonitor(MPV):
         self.audio_ffmpeg_id = 0
         self.sub_id = "auto"
 
-        self.version = self.get_property("mpv-version")
-        m = re.search(r'^mpv (\d+\.\d+)', self.version)
-        assert m, self.version
-        self.version = float(m.group(1))
-
         self.set_property("include", self.mpvConf)
 
         self.command("load-script", os.path.join(os.path.dirname(os.path.abspath(__file__)), "mpv2anki.lua"))
@@ -754,7 +749,7 @@ class AnkiHelper(QObject):
             else:
                 timeEnd = timePos
 
-        if timeStart == -1 and timeEnd == -1 and self.mpvManager.version >= 0.32:
+        if timeStart == -1 and timeEnd == -1:
             try:
                 timeStart = float(self.mpvManager.get_property("sub-start"))
                 timeEnd = float(self.mpvManager.get_property("sub-end"))
