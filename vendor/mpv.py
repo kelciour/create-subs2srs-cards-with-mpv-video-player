@@ -86,7 +86,6 @@ class MPVBase:
         "--idle",
         "--no-terminal",
         "--force-window=no",
-        "--audio-display=no",
         "--keep-open=no",
         "--reset-on-next-file=pause",
         "--autoload-files=no",
