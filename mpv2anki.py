@@ -1258,14 +1258,41 @@ class MainWindow(QDialog):
         self.done(0)
 
     def validate(self):
-        return self.configManager.getFieldsMapping(self.settings["default_model"]) != {}
+        name = self.settings["default_model"]
+
+        fm = self.configManager.getFieldsMapping(name)
+        if not fm:
+            return False, "No fields were mapped. Please click on the gear icon and map some fields."
+
+        model = mw.col.models.byName(name)
+        fields = mw.col.models.fieldNames(model)
+
+        m = {}
+        renamed_or_deleted = []
+        for k, v in fm.items():
+            if k not in fields:
+                renamed_or_deleted.append(k)
+                continue
+            m[k] = v
+
+        if renamed_or_deleted:
+            msg = "The following fields no longer can be found in the note type:"
+            msg += "\n\n"
+            msg += "\n".join(renamed_or_deleted)
+            msg += "\n\n"
+            msg += "Please click on the gear icon and double check the mapping."
+            self.configManager.updateMapping(name, m)
+            return False, msg
+
+        return True, None
 
     def start(self):
         self.saveSettings()
-        if self.validate():
+        ret, msg = self.validate()
+        if ret:
             self.accept()
         else:
-            showWarning("No fields were mapped. Please click on the gear icon and map some fields.")
+            showWarning(msg)
 
 def openVideoWithMPV():
     env = os.environ.copy()
