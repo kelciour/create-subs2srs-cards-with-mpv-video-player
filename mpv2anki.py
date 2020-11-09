@@ -507,6 +507,9 @@ class MPVMonitor(MPV):
     def on_property_sid(self, sub_id=None):
         self.sub_id = sub_id if sub_id != False else "no"
 
+    def on_property_sub_delay(self, val):
+        self.sub_delay = round(float(val), 3)
+
     def on_start_file(self):
         self.filePath = self.get_property("path")
         self.subsManager.init(self.filePath)
@@ -688,7 +691,7 @@ class AnkiHelper(QObject):
 
         note = mw.col.newNote(forDeck=False)
 
-        sub_id = self.subsManager.get_subtitle_id(timePos)
+        sub_id = self.subsManager.get_subtitle_id(timePos - self.mpvManager.sub_delay)
 
         subTranslation = ""
 
@@ -713,8 +716,8 @@ class AnkiHelper(QObject):
                 sub_start = float(self.mpvManager.get_property("sub-start"))
                 sub_end = float(self.mpvManager.get_property("sub-end"))
 
-                sub_start -= sub_pad_start
-                sub_end += sub_pad_end
+                sub_start += -sub_pad_start + self.mpvManager.sub_delay
+                sub_end += sub_pad_end + self.mpvManager.sub_delay
             except MPVCommandError:
                 self.is_sub_start = False
                 pass
@@ -734,11 +737,11 @@ class AnkiHelper(QObject):
             subTranslation_before = self.subsManager.get_prev_subtitle(sub_id, translation=True)[2]
             subTranslation_after = self.subsManager.get_next_subtitle(sub_id, translation=True)[2]
             
-            sub_start -= sub_pad_start
-            sub_end += sub_pad_end
+            sub_start += -sub_pad_start + self.mpvManager.sub_delay
+            sub_end += sub_pad_end + self.mpvManager.sub_delay
 
-            prev_sub_start -= sub_pad_start
-            next_sub_end += sub_pad_end
+            prev_sub_start += -sub_pad_start + self.mpvManager.sub_delay
+            next_sub_end += sub_pad_end + self.mpvManager.sub_delay
 
             noteId = "%s_%s-%s" % (self.format_filename(source), secondsToFilename(sub_start), secondsToFilename(sub_end))
 
