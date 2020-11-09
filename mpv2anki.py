@@ -698,8 +698,8 @@ class AnkiHelper(QObject):
         subTranslation_before = ""
         subTranslation_after = ""
 
-        sub_pad_start = 0
-        sub_pad_end = 0
+        sub_pad_start = self.settings["pad_start"] / 1000.0
+        sub_pad_end = self.settings["pad_end"] / 1000.0
 
         if timeStart >= 0 and timeEnd == -1:
             if timePos - timeStart > 60:
@@ -710,8 +710,11 @@ class AnkiHelper(QObject):
 
         if self.is_sub_start and timeStart == -1 and timeEnd == -1: # mpv >= v0.30.0
             try:
-                timeStart = float(self.mpvManager.get_property("sub-start"))
-                timeEnd = float(self.mpvManager.get_property("sub-end"))
+                sub_start = float(self.mpvManager.get_property("sub-start"))
+                sub_end = float(self.mpvManager.get_property("sub-end"))
+
+                sub_start -= sub_pad_start
+                sub_end += sub_pad_end
             except MPVCommandError:
                 self.is_sub_start = False
                 pass
@@ -731,9 +734,6 @@ class AnkiHelper(QObject):
             subTranslation_before = self.subsManager.get_prev_subtitle(sub_id, translation=True)[2]
             subTranslation_after = self.subsManager.get_next_subtitle(sub_id, translation=True)[2]
             
-            sub_pad_start = self.settings["pad_start"] / 1000.0
-            sub_pad_end = self.settings["pad_end"] / 1000.0
-
             sub_start -= sub_pad_start
             sub_end += sub_pad_end
 
@@ -745,8 +745,11 @@ class AnkiHelper(QObject):
         if timeStart >= 0 and timeEnd >= 0:
             sub_start = timeStart
             sub_end = timeEnd
+
             sub_pad_start = 0
             sub_pad_end = 0
+
+            noteId = "%s_%s-%s" % (self.format_filename(source), secondsToFilename(sub_start), secondsToFilename(sub_end))
 
         noteFields["Id"] = noteId
         noteFields["Line"] = subText
@@ -768,12 +771,6 @@ class AnkiHelper(QObject):
 
         video = None
 
-        if sub_id is not None:
-            video_sub_start = sub_start
-            video_sub_end = sub_end
-            video_sub_pad_start = sub_pad_start
-            video_sub_pad_end = sub_pad_end
-
         if "Image" in fieldsMap:
             image = self.subprocess_image(source, timePos, subprocess_calls)
             noteFields["Image"] = '<img src="%s" />' % image
@@ -782,7 +779,7 @@ class AnkiHelper(QObject):
             image_with_subtitles = self.subprocess_image(source, timePos, subprocess_calls, sub=sid, suffix="_S")
             noteFields["Image (with subtitles)"] = '<img src="%s" />' % image_with_subtitles
         
-        if sub_id is not None or (timeStart >= 0 and timeEnd >= 0):
+        if sub_start >= 0 and sub_end >= 0:
             if "Audio" in fieldsMap:
                 audio = self.subprocess_audio(source, sub_start, sub_end, aid, aid_ff, subprocess_calls)
                 noteFields["Audio"] = '[sound:%s]' % audio
@@ -816,15 +813,9 @@ class AnkiHelper(QObject):
                 noteFields["[webm] Video (HTML5 with context)"] = video
                 is_context = True
 
-            if is_context:
-                video_sub_start = prev_sub_start
-                video_sub_end = next_sub_end
-                video_sub_pad_start = self.settings["pad_start"] / 1000.0
-                video_sub_pad_end = self.settings["pad_end"] / 1000.0
-
             if "Video Subtitles" in fieldsMap: 
                 if video is None:
-                    video = self.get_video_filename(source, video_sub_start, video_sub_end, "mp4")
+                    video = self.get_video_filename(source, sub_start, sub_end, "mp4")
                 subtitles = os.path.splitext(video)[0] + ".srt"
                 subtitlesPath = os.path.join(mw.col.media.dir(), subtitles)
                 noteFields["Video Subtitles"] = '[sound:%s]' % subtitles
@@ -848,7 +839,7 @@ class AnkiHelper(QObject):
             self.call(p)
 
         if sub_id is not None and "Video Subtitles" in fieldsMap:
-            self.subsManager.write_subtitles(video_sub_start, video_sub_end, video_sub_pad_start, video_sub_pad_end, subtitlesPath)
+            self.subsManager.write_subtitles(sub_start, sub_end, sub_pad_start, sub_pad_end, subtitlesPath)
 
         cards = mw.col.addNote(note)
         if cards == 0:
