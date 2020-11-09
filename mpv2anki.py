@@ -373,32 +373,6 @@ class SubtitlesHelper():
         else:
             return self.translations[sub_id + 1]
 
-    def get_phrase(self, sub_id, translation=False):
-        phrase_start, phrase_end, phrase_text = self.get_subtitle(sub_id, translation)
-
-        if not translation:
-            subs = self.subs
-        else:
-            subs = self.translations
-
-        for sub in reversed(subs[:sub_id]):
-            sub_start, sub_end, sub_text = sub
-            if phrase_start - sub_end <= self.settings["gap_between_phrases"]:
-                phrase_start = sub_start
-                phrase_text = sub_text + " " + phrase_text
-            else:
-                break
-               
-        for sub in subs[sub_id+1:]:
-            sub_start, sub_end, sub_text = sub
-            if sub_start - phrase_end <= self.settings["gap_between_phrases"]:
-                phrase_end = sub_end
-                phrase_text += " " + sub_text
-            else:
-                break
-
-        return (phrase_start, phrase_end, phrase_text)
-
 class ConfigManager():
     def __init__(self):
         self.configPath = os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_files", "config.json")
@@ -415,20 +389,12 @@ class ConfigManager():
             "video_height" : 320,
             "pad_start" : 250,
             "pad_end" : 250,
-            "create_clips_with_phrases" : False,
-            "phrase_default_model" : "mpv2anki",
-            "phrase_default_deck" : "Default",
-            "phrase_video_width" : -2,
-            "phrase_video_height" : 320,
-            "phrase_pad_start" : 750,
-            "phrase_pad_end" : 750,
             "use_mpv" : True,
             "audio_ext" : "mp3",
             "subs_target_language": "English",
             "subs_target_language_code": "en",
             "subs_native_language": "",
             "subs_native_language_code": "",
-            "gap_between_phrases" : 1.25
         }
         self.config = { key: value for key, value in self.default.items() }
 
@@ -593,13 +559,6 @@ class AnkiHelper(QObject):
             fieldsMapDefault[v].append(k)
         self.fieldsMap["default_model"] = fieldsMapDefault
 
-        fieldsMapPhrase = {}
-        for k, v in self.configManager.getFieldsMapping(self.settings["phrase_default_model"]).items():
-            if v not in fieldsMapPhrase:
-                fieldsMapPhrase[v] = []
-            fieldsMapPhrase[v].append(k)
-        self.fieldsMap["phrase_default_model"] = fieldsMapPhrase
-
     def updateFilePath(self, filePath):
         self.filePath = filePath
         if '://' not in self.filePath:
@@ -609,9 +568,6 @@ class AnkiHelper(QObject):
 
     def createAnkiCard(self, timePos, timeStart, timeEnd, subText):
         self.addNewCard(timePos, timeStart, timeEnd, subText)
-
-        if self.settings["create_clips_with_phrases"]:
-            self.addNewCard(timePos, timeStart, timeEnd, subText, key="phrase_", phraseMode=True)
 
     def format_filename(self, filename):
         if not self.is_local_file or re.search(r'[\\/:"*?<>|]+', filename):
@@ -672,7 +628,7 @@ class AnkiHelper(QObject):
         video = "%s_%s-%s.%s" % (self.format_filename(source), secondsToFilename(sub_start), secondsToFilename(sub_end), video_format)
         return video
 
-    def subprocess_video(self, source, sub_start, sub_end, aid, aid_ff, video_format, key, subprocess_calls):
+    def subprocess_video(self, source, sub_start, sub_end, aid, aid_ff, video_format, subprocess_calls):
         video = self.get_video_filename(source, sub_start, sub_end, video_format)
         videoPath = os.path.join(mw.col.media.dir(), video)
         if not self.settings["use_mpv"] and ffmpeg_executable:
@@ -683,7 +639,7 @@ class AnkiHelper(QObject):
             argv += ["-map", "0:v:0"]
             argv += ["-map", "0:a:%d" % aid_ff]
             argv += ["-af", "afade=t=in:st={:.3f}:d={:.3f},afade=t=out:st={:.3f}:d={:.3f}".format(0, 0.25, sub_end - sub_start - 0.25, 0.25)]
-            argv += ["-vf", "scale=%d:%d" % (self.settings[key + "video_width"], self.settings[key + "video_height"])]
+            argv += ["-vf", "scale=%d:%d" % (self.settings["video_width"], self.settings["video_height"])]
             if video_format == "webm":
                 argv += ["-c:v", "libvpx-vp9"]
                 argv += ["-b:v", "1400K", "-threads", "8", "-speed", "2", "-crf", "23"]
@@ -695,7 +651,7 @@ class AnkiHelper(QObject):
             argv += ["--sub=no"]
             argv += ["--aid=%d" % aid]
             argv += ["--af=afade=t=in:st=%s:d=%s,afade=t=out:st=%s:d=%s" % (sub_start, 0.25, sub_end - 0.25, 0.25)]
-            argv += ["--vf-add=lavfi-scale=%s:%s" % (self.settings[key + "video_width"], self.settings[key + "video_height"])]
+            argv += ["--vf-add=lavfi-scale=%s:%s" % (self.settings["video_width"], self.settings["video_height"])]
             if video_format == "webm":
                 argv += ["--ovc=libvpx-vp9"]
                 argv += ["--ovcopts=b=1400K,threads=4,crf=23,qmin=0,qmax=36,speed=2"]
@@ -716,11 +672,11 @@ class AnkiHelper(QObject):
 
         subprocess.Popen(argv, startupinfo=si, env=self.popenEnv)
 
-    def addNewCard(self, timePos, timeStart, timeEnd, subText, key="", phraseMode=False):
+    def addNewCard(self, timePos, timeStart, timeEnd, subText):
         
         noteFields = { k:"" for k in self.configManager.getFields()}
 
-        model = mw.col.models.byName(self.settings[key + "default_model"])
+        model = mw.col.models.byName(self.settings["default_model"])
         mw.col.models.setCurrent(model)
 
         source = os.path.basename(self.filePath)
@@ -766,24 +722,17 @@ class AnkiHelper(QObject):
             else:
                 noteId = "%s_%s" % (self.format_filename(source), secondsToFilename(timePos))
         else:
-            if not phraseMode:
-                sub_start, sub_end, subText = self.subsManager.get_subtitle(sub_id)
-                subTranslation = self.subsManager.get_subtitle(sub_id, translation=True)[2]
+            sub_start, sub_end, subText = self.subsManager.get_subtitle(sub_id)
+            subTranslation = self.subsManager.get_subtitle(sub_id, translation=True)[2]
 
-                prev_sub_start, prev_sub_end, subText_before = self.subsManager.get_prev_subtitle(sub_id)
-                next_sub_start, next_sub_end, subText_after = self.subsManager.get_next_subtitle(sub_id)
+            prev_sub_start, prev_sub_end, subText_before = self.subsManager.get_prev_subtitle(sub_id)
+            next_sub_start, next_sub_end, subText_after = self.subsManager.get_next_subtitle(sub_id)
 
-                subTranslation_before = self.subsManager.get_prev_subtitle(sub_id, translation=True)[2]
-                subTranslation_after = self.subsManager.get_next_subtitle(sub_id, translation=True)[2]
-            else:
-                sub_start, sub_end, subText = self.subsManager.get_phrase(sub_id)
-                subTranslation = self.subsManager.get_phrase(sub_id, translation=True)[2]
-
-                prev_sub_start = sub_start
-                next_sub_end = sub_end
+            subTranslation_before = self.subsManager.get_prev_subtitle(sub_id, translation=True)[2]
+            subTranslation_after = self.subsManager.get_next_subtitle(sub_id, translation=True)[2]
             
-            sub_pad_start = self.settings[key + "pad_start"] / 1000.0
-            sub_pad_end = self.settings[key + "pad_end"] / 1000.0
+            sub_pad_start = self.settings["pad_start"] / 1000.0
+            sub_pad_end = self.settings["pad_end"] / 1000.0
 
             sub_start -= sub_pad_start
             sub_end += sub_pad_end
@@ -815,7 +764,7 @@ class AnkiHelper(QObject):
         aid_ff = self.mpvManager.audio_ffmpeg_id
         sid = self.mpvManager.sub_id
 
-        fieldsMap = self.fieldsMap[key + "default_model"]
+        fieldsMap = self.fieldsMap["default_model"]
 
         video = None
 
@@ -839,12 +788,12 @@ class AnkiHelper(QObject):
                 noteFields["Audio"] = '[sound:%s]' % audio
 
             if "Video" in fieldsMap or "Video (HTML5)" in fieldsMap:
-                video = self.subprocess_video(source, sub_start, sub_end, aid, aid_ff, "mp4", key, subprocess_calls)
+                video = self.subprocess_video(source, sub_start, sub_end, aid, aid_ff, "mp4", subprocess_calls)
                 noteFields["Video"] = '[sound:%s]' % video
                 noteFields["Video (HTML5)"] = video
 
             if "[webm] Video" in fieldsMap or "[webm] Video (HTML5)" in fieldsMap :
-                video = self.subprocess_video(source, sub_start, sub_end, aid, aid_ff, "webm", key, subprocess_calls)
+                video = self.subprocess_video(source, sub_start, sub_end, aid, aid_ff, "webm", subprocess_calls)
                 noteFields["[webm] Video"] = '[sound:%s]' % video
                 noteFields["[webm] Video (HTML5)"] = video
 
@@ -856,13 +805,13 @@ class AnkiHelper(QObject):
             is_context = False
 
             if "Video (with context)" in fieldsMap or "Video (HTML5 with context)" in fieldsMap:
-                video = self.subprocess_video(source, prev_sub_start, next_sub_end, aid, aid_ff, "mp4", key, subprocess_calls)
+                video = self.subprocess_video(source, prev_sub_start, next_sub_end, aid, aid_ff, "mp4", subprocess_calls)
                 noteFields["Video (with context)"] = '[sound:%s]' % video
                 noteFields["Video (HTML5 with context)"] = video
                 is_context = True
             
             if "[webm] Video (with context)" in fieldsMap or "[webm] Video (HTML5 with context)" in fieldsMap:
-                video = self.subprocess_video(source, prev_sub_start, next_sub_end, aid, aid_ff, "webm", key, subprocess_calls)
+                video = self.subprocess_video(source, prev_sub_start, next_sub_end, aid, aid_ff, "webm", subprocess_calls)
                 noteFields["[webm] Video (with context)"] = '[sound:%s]' % video
                 noteFields["[webm] Video (HTML5 with context)"] = video
                 is_context = True
@@ -870,8 +819,8 @@ class AnkiHelper(QObject):
             if is_context:
                 video_sub_start = prev_sub_start
                 video_sub_end = next_sub_end
-                video_sub_pad_start = self.settings[key + "pad_start"] / 1000.0
-                video_sub_pad_end = self.settings[key + "pad_end"] / 1000.0
+                video_sub_pad_start = self.settings["pad_start"] / 1000.0
+                video_sub_pad_end = self.settings["pad_end"] / 1000.0
 
             if "Video Subtitles" in fieldsMap: 
                 if video is None:
@@ -886,14 +835,13 @@ class AnkiHelper(QObject):
 
         ret = note.dupeOrEmpty()
         if ret == 2:
-            if not phraseMode:
-                self.mpvManager.command("show-text", "Error: Card already exists.")
+            self.mpvManager.command("show-text", "Error: Card already exists.")
             return
 
-        did = mw.col.decks.id(self.settings[key + "default_deck"])
+        did = mw.col.decks.id(self.settings["default_deck"])
         note.model()['did'] = did
 
-        if not phraseMode and mw.state == "deckBrowser":
+        if mw.state == "deckBrowser":
             mw.col.decks.select(did)
 
         for p in subprocess_calls:
@@ -1015,19 +963,13 @@ class MainWindow(QDialog):
         ret = StudyDeck(mw, names=nameFunc, buttons=[edit], accept=_("Choose"), title=_("Choose Note Type"), parent=self)
         if ret.name == None:
             return
-        if name == "default_model":
-            self.modelButton.setText(ret.name)
-        elif name == "phrase_default_model":
-            self.modelPhraseButton.setText(ret.name)
+        self.modelButton.setText(ret.name)
 
     def chooseDeck(self, name):
         ret = StudyDeck(mw, accept=_("Choose"), title=_("Choose Deck"), parent=self)
         if ret.name == None:
             return
-        if name == "default_deck":
-            self.deckButton.setText(ret.name)
-        elif name == "phrase_default_deck":
-            self.deckPhraseButton.setText(ret.name)
+        self.deckButton.setText(ret.name)
 
     def mapFields(self, model):
         fm = FieldMapping(model, self.configManager, parent=self)
@@ -1131,71 +1073,6 @@ class MainWindow(QDialog):
 
         grid.addWidget(subsGroup, 3, 0, 1, 5)
 
-        # Import Phrases Options
-
-        self.importPhraseGroup = QGroupBox("Generate Clips with Phrases")
-        self.modelPhraseButton = QPushButton()
-        if mw.col.models.byName(self.settings["phrase_default_model"]):
-            self.modelPhraseButton.setText(self.settings["phrase_default_model"])
-        else:
-            self.modelPhraseButton.setText(mw.col.models.current()['name'])
-        self.modelPhraseButton.clicked.connect(lambda: self.chooseModel("phrase_default_model"))
-        self.modelPhraseFieldsButton = QPushButton()
-        self.modelPhraseFieldsButton.clicked.connect(lambda: self.mapFields(self.modelPhraseButton.text()))
-        self.deckPhraseButton = QPushButton(self.settings["phrase_default_deck"])
-        self.deckPhraseButton.clicked.connect(lambda: self.chooseDeck("phrase_default_deck"))
-
-        icon = QIcon(":/icons/gears.png")
-        self.modelPhraseFieldsButton.setIcon(icon)
-
-        grid = QGridLayout()
-        grid.addWidget(QLabel("Type:"), 0, 0)
-        grid.addWidget(self.modelPhraseButton, 0, 1)
-        grid.setColumnStretch(1, 1)
-        grid.addWidget(self.modelPhraseFieldsButton, 0, 2)
-        grid.addWidget(QLabel("Deck:"), 0, 3)
-        grid.addWidget(self.deckPhraseButton, 0, 4)
-        grid.setColumnStretch(4, 1)
-
-        self.importPhraseGroup.toggled.connect(lambda: self.toggleGroup(self.importPhraseGroup))
-        self.importPhraseGroup.setLayout(grid)
-        self.importPhraseGroup.setCheckable(True)
-        self.importPhraseGroup.setChecked(self.settings["create_clips_with_phrases"])
-
-        grid2 = QGridLayout()
-
-        videoPhraseGroup, self.videoPhraseWidth, self.videoPhraseHeight = self.getTwoSpeenBoxesOptionsGroup("Video", 
-            ["Width:", "Height:", "px"],
-            [self.settings["phrase_video_width"], self.settings["phrase_video_height"]],
-            [-2, 10000, 2])
-        padPhraseGroup, self.padPhraseStart, self.padPhraseEnd = self.getTwoSpeenBoxesOptionsGroup("Pad Timings", 
-            ["Start:", "End:", "ms"],
-            [self.settings["phrase_pad_start"], self.settings["phrase_pad_end"]],
-            [0, 10000, 1])
-
-        gapPhraseGroup = QGroupBox("Gap between Phrases")
-
-        h = QHBoxLayout()
-        h.addItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
-        self.gapBetweenPhrases = QDoubleSpinBox()
-        h.addWidget(self.gapBetweenPhrases)
-        h.addWidget(QLabel("sec"))
-        h.addItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
-
-        self.gapBetweenPhrases.setRange(0, 60)
-        self.gapBetweenPhrases.setSingleStep(0.25)
-        self.gapBetweenPhrases.setValue(self.settings["gap_between_phrases"])
-
-        gapPhraseGroup.setLayout(h)
-
-        grid2.addWidget(videoPhraseGroup, 0, 0, 2, 1)
-        grid2.addWidget(padPhraseGroup, 0, 1, 2, 1)
-        grid2.addWidget(gapPhraseGroup, 0, 2)
-        
-        grid.addLayout(grid2, 2, 0, 1, 5)
-
-        # vbox.addWidget(self.importPhraseGroup)
-
         # Go!
 
         self.startButton = QPushButton("Go!")
@@ -1243,15 +1120,6 @@ class MainWindow(QDialog):
         self.settings["subs_native_language"] = self.subsNativeLang.currentText()
         self.settings["subs_native_language_code"] = self.subsNativeLC.text()
         
-        self.settings["create_clips_with_phrases"] = self.importPhraseGroup.isChecked()
-        self.settings["phrase_default_model"] = self.modelPhraseButton.text()
-        self.settings["phrase_default_deck"] = self.deckPhraseButton.text()
-        self.settings["phrase_video_width"] = self.videoPhraseWidth.value()
-        self.settings["phrase_video_height"] = self.videoPhraseHeight.value()
-        self.settings["phrase_pad_start"] = self.padPhraseStart.value()
-        self.settings["phrase_pad_end"] = self.padPhraseEnd.value()
-        self.settings["gap_between_phrases"] = self.gapBetweenPhrases.value()
-
         self.configManager.save()
 
     def reject(self):
