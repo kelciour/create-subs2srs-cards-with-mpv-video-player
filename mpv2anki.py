@@ -44,7 +44,7 @@ from hashlib import sha1
 # import the main window object (mw) from aqt
 from aqt import mw
 # import the "get file" tool from utils.py
-from aqt.utils import getFile, showWarning, isMac, isWin
+from aqt.utils import getFile, showWarning, isMac, isWin, getOnlyText
 # import all of the Qt GUI library
 from aqt.qt import *
 
@@ -474,11 +474,7 @@ class MPVMonitor(MPV):
 
         self.command("load-script", os.path.join(os.path.dirname(os.path.abspath(__file__)), "mpv2anki.lua"))
 
-        for url in fileUrls:
-            if url.isLocalFile():
-                filePath = url.toLocalFile()
-            else:
-                filePath  = url.toString()
+        for filePath in fileUrls:
             self.command("loadfile", filePath, "append-play")
 
     def on_property_term_status_msg(self, statusMsg=None):
@@ -913,6 +909,7 @@ class MainWindow(QDialog):
         self.configManager = configManager
         self.settings = self.configManager.getSettings()
         self.subsLC = {lang:lc.lower()[:2] for lang, lc in langs}
+        self.isURL = False
         self.initUI()
 
     def getTwoSpeenBoxesOptionsGroup(self, name, labels, values, options):
@@ -1069,12 +1066,17 @@ class MainWindow(QDialog):
 
         # Go!
 
-        self.startButton = QPushButton("Go!")
-        self.startButton.setDefault(True)
-        self.startButton.clicked.connect(self.start)
+        self.openURLButton = QPushButton("Open URL")
+        self.openURLButton.clicked.connect(self.openURL)
+
+        self.openFileButton = QPushButton("Open File")
+        self.openFileButton.setDefault(True)
+        self.openFileButton.clicked.connect(self.start)
+
         hbox = QHBoxLayout()
         hbox.addStretch(1)
-        hbox.addWidget(self.startButton)
+        hbox.addWidget(self.openURLButton)
+        hbox.addWidget(self.openFileButton)
         vbox.addLayout(hbox)
 
         self.setLayout(vbox)
@@ -1149,6 +1151,10 @@ class MainWindow(QDialog):
 
         return True, None
 
+    def openURL(self):
+        self.isURL = True
+        self.start()
+
     def start(self):
         self.saveSettings()
         ret, msg = self.validate()
@@ -1189,7 +1195,19 @@ def openVideoWithMPV():
     mainWindow = MainWindow(configManager, parent=mw)
 
     if mainWindow.exec_():
-        fileUrls = getVideoFile()
+        if mainWindow.isURL:
+            txt = getOnlyText("Enter URL:")
+            if not txt:
+                return
+            fileUrls = [txt]
+        else:
+            fileUrls = getVideoFile()
+            def formatURL(url):
+                if url.isLocalFile():
+                    return url.toLocalFile()
+                else:
+                    return url.toString()
+            fileUrls = [formatURL(f) for f in fileUrls]
         if not fileUrls:
             return
         AnkiHelper(executable, popenEnv, fileUrls, configManager)
