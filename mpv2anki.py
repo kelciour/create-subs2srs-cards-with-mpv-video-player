@@ -697,6 +697,9 @@ class AnkiHelper(QObject):
         subTranslation_before = ""
         subTranslation_after = ""
 
+        sub_start = -1
+        sub_end = -1
+
         sub_pad_start = self.settings["pad_start"] / 1000.0
         sub_pad_end = self.settings["pad_end"] / 1000.0
 
@@ -718,12 +721,7 @@ class AnkiHelper(QObject):
                 self.is_sub_start = False
                 pass
 
-        if sub_id is None:
-            if timeStart >= 0 and timeEnd >= 0:
-                noteId = "%s_%s-%s" % (self.format_filename(source), secondsToFilename(timeStart), secondsToFilename(timeEnd))
-            else:
-                noteId = "%s_%s" % (self.format_filename(source), secondsToFilename(timePos))
-        else:
+        if sub_id is not None:
             sub_start, sub_end, subText = self.subsManager.get_subtitle(sub_id)
             subTranslation = self.subsManager.get_subtitle(sub_id, translation=True)[2]
 
@@ -739,8 +737,6 @@ class AnkiHelper(QObject):
             prev_sub_start += -sub_pad_start + self.mpvManager.sub_delay
             next_sub_end += sub_pad_end + self.mpvManager.sub_delay
 
-            noteId = "%s_%s-%s" % (self.format_filename(source), secondsToFilename(sub_start), secondsToFilename(sub_end))
-
         if timeStart >= 0 and timeEnd >= 0:
             sub_start = timeStart
             sub_end = timeEnd
@@ -748,7 +744,10 @@ class AnkiHelper(QObject):
             sub_pad_start = 0
             sub_pad_end = 0
 
+        if sub_start >= 0 and sub_end >= 0:
             noteId = "%s_%s-%s" % (self.format_filename(source), secondsToFilename(sub_start), secondsToFilename(sub_end))
+        else:
+            noteId = "%s_%s" % (self.format_filename(source), secondsToFilename(timePos))
 
         noteFields["Id"] = noteId
         noteFields["Line"] = subText
