@@ -687,8 +687,6 @@ class AnkiHelper(QObject):
 
         note = mw.col.newNote(forDeck=False)
 
-        sub_id = self.subsManager.get_subtitle_id(timePos - self.mpvManager.sub_delay)
-
         subTranslation = ""
 
         subText_before = ""
@@ -709,6 +707,12 @@ class AnkiHelper(QObject):
                 return
             else:
                 timeEnd = timePos
+
+        if timeStart >= 0:
+            subTime = timeStart + (timeEnd - timeStart) / 2
+            sub_id = self.subsManager.get_subtitle_id(subTime - self.mpvManager.sub_delay)
+        else:
+            sub_id = self.subsManager.get_subtitle_id(timePos - self.mpvManager.sub_delay)
 
         if self.is_sub_start and timeStart == -1 and timeEnd == -1: # mpv >= v0.30.0
             try:
