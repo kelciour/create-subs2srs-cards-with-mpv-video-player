@@ -325,7 +325,7 @@ class SubtitlesHelper():
         return subs_filtered
 
     def write_subtitles(self, clip_start, clip_end, pad_start, pad_end, filename):
-        subs = self.filter_subtitles(clip_start, clip_end, pad_start, pad_end)
+        subs = self.filter_subtitles(clip_start - self.sub_delay, clip_end - self.sub_delay, pad_start, pad_end)
 
         f = open(filename, 'w', encoding='utf-8')
         for idx in range(len(subs)):
@@ -336,6 +336,7 @@ class SubtitlesHelper():
         f.close()
 
     def get_subtitle_id(self, time_pos):
+        time_pos = time_pos - self.sub_delay
         for sub_id in range(len(self.subs)):
             sub_start, sub_end, sub_content = self.subs[sub_id]
             if sub_start <= time_pos and time_pos <= sub_end:
@@ -504,7 +505,7 @@ class MPVMonitor(MPV):
         self.sub_id = sub_id if sub_id != False else "no"
 
     def on_property_sub_delay(self, val):
-        self.sub_delay = round(float(val), 3)
+        self.subsManager.sub_delay = round(float(val), 3)
 
     def on_start_file(self):
         self.filePath = self.get_property("path")
@@ -710,17 +711,17 @@ class AnkiHelper(QObject):
 
         if timeStart >= 0:
             subTime = timeStart + (timeEnd - timeStart) / 2
-            sub_id = self.subsManager.get_subtitle_id(subTime - self.mpvManager.sub_delay)
+            sub_id = self.subsManager.get_subtitle_id(subTime)
         else:
-            sub_id = self.subsManager.get_subtitle_id(timePos - self.mpvManager.sub_delay)
+            sub_id = self.subsManager.get_subtitle_id(timePos)
 
         if self.is_sub_start and timeStart == -1 and timeEnd == -1: # mpv >= v0.30.0
             try:
                 sub_start = float(self.mpvManager.get_property("sub-start"))
                 sub_end = float(self.mpvManager.get_property("sub-end"))
 
-                sub_start += -sub_pad_start + self.mpvManager.sub_delay
-                sub_end += sub_pad_end + self.mpvManager.sub_delay
+                sub_start += -sub_pad_start + self.subsManager.sub_delay
+                sub_end += sub_pad_end + self.subsManager.sub_delay
             except MPVCommandError:
                 self.is_sub_start = False
                 pass
@@ -735,11 +736,11 @@ class AnkiHelper(QObject):
             subTranslation_before = self.subsManager.get_prev_subtitle(sub_id, translation=True)[2]
             subTranslation_after = self.subsManager.get_next_subtitle(sub_id, translation=True)[2]
             
-            sub_start += -sub_pad_start + self.mpvManager.sub_delay
-            sub_end += sub_pad_end + self.mpvManager.sub_delay
+            sub_start += -sub_pad_start + self.subsManager.sub_delay
+            sub_end += sub_pad_end + self.subsManager.sub_delay
 
-            prev_sub_start += -sub_pad_start + self.mpvManager.sub_delay
-            next_sub_end += sub_pad_end + self.mpvManager.sub_delay
+            prev_sub_start += -sub_pad_start + self.subsManager.sub_delay
+            next_sub_end += sub_pad_end + self.subsManager.sub_delay
 
         if timeStart >= 0 and timeEnd >= 0:
             sub_start = timeStart
