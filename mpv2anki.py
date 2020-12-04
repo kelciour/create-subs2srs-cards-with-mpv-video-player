@@ -44,7 +44,7 @@ from hashlib import sha1
 # import the main window object (mw) from aqt
 from aqt import mw
 # import the "get file" tool from utils.py
-from aqt.utils import getFile, showWarning, isMac, isWin, getOnlyText
+from aqt.utils import getFile, showWarning, showText, getOnlyText
 # import all of the Qt GUI library
 from aqt.qt import *
 
@@ -53,7 +53,7 @@ from anki.lang import _, langs
 from anki.hooks import addHook
 from aqt.studydeck import StudyDeck
 from distutils.spawn import find_executable
-from anki.utils import isWin
+from anki.utils import isMac, isWin, isLin
 
 from . import icons_rc
 
@@ -1190,12 +1190,35 @@ def openVideoWithMPV():
     mpvPackagedPath, popenPackagedEnv = _packagedCmd(["mpv"])
     mpvPackagedExecutable = mpvPackagedPath[0]
 
-    if executable is None and mpvPackagedExecutable:
-        executable = mpvPackagedExecutable
-        popenEnv = popenPackagedEnv
-
-    if executable == None:
-        return showWarning("Please install <a href='https://mpv.io'>mpv</a> and add it to the PATH environment variable on Windows.", parent=mw)
+    if executable is None or (executable == mpvPackagedExecutable):
+        if isLin:
+            return showWarning("Please install <a href='https://mpv.io'>mpv</a> and try again.", parent=mw)
+        if isMac:
+            msg = """The add-on can't find mpv. Please install it from <a href='https://mpv.io'>https://mpv.io</a> and try again.
+<br><br>
+- Download mpv from <a href='https://laboratory.stolendata.net/~djinn/mpv_osx/'>https://laboratory.stolendata.net/~djinn/mpv_osx/</a><br>
+- Unpack it somewhere and drag-and-drop 'mpv.app' folder to 'Applications' folder.<br>
+- Maybe it'll work.
+<br><br>
+or
+<br><br>
+- Open the Terminal app<br>
+- Install <a href='https://brew.sh/'>https://brew.sh/</a><br>
+- Paste the following command and press Return to install mpv.
+<br><br>
+<code>brew cask install mpv</code>
+"""
+            return showText(msg, type='html', parent=mw)
+        assert isWin
+        msg = """The add-on can't find mpv. Please install it from <a href='https://mpv.io'>https://mpv.io</a> and try again.
+<br><br>
+- The Windows build can be downloaded from <a href='https://sourceforge.net/projects/mpv-player-windows/files/64bit/'>https://sourceforge.net/projects/mpv-player-windows/files/64bit/</a><br>
+- Unpack it with WinRar or 7-Zip - <a href='https://www.7-zip.org/'>https://www.7-zip.org/</a><br>
+- Move it somewhere, e.g. C:\\Program Files\\mpv<br>
+- Update the PATH environment variable - <a href='https://www.architectryan.com/2018/03/17/add-to-the-path-on-windows-10/'>https://www.architectryan.com/2018/03/17/add-to-the-path-on-windows-10/</a> or <a href='https://streamable.com/2b1l6'>https://streamable.com/2b1l6</a><br>
+- Restart Anki.
+"""
+        return showText(msg, type='html', parent=mw)
 
     configManager = ConfigManager()
     mainWindow = MainWindow(configManager, parent=mw)
