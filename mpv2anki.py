@@ -68,7 +68,7 @@ import pysubs2
 
 from mpv import *
 
-if isMac:
+if isMac and "/usr/local/bin" not in os.environ['PATH']:
     # https://docs.brew.sh/FAQ#my-mac-apps-dont-find-usrlocalbin-utilities
     os.environ['PATH'] = "/usr/local/bin:" + os.environ['PATH']
 
@@ -1173,23 +1173,25 @@ def openVideoWithMPV():
         path = os.environ['PATH'].split(os.pathsep)
         os.environ['PATH'] = os.pathsep.join(path[1:])
 
-    executable = find_executable("mpv")
+    executable = None
     popenEnv = os.environ.copy()
 
-    if executable is None and isMac:
+    if "LD_LIBRARY_PATH" in popenEnv:
+        del popenEnv['LD_LIBRARY_PATH']
+
+    if isMac and os.path.exists("/Applications/mpv.app/Contents/MacOS/mpv"):
         executable = "/Applications/mpv.app/Contents/MacOS/mpv"
-        if not os.path.exists(executable):
-            executable = None
 
     if executable is None:
-        mpvPath, popenEnv = _packagedCmd(["mpv"])
-        executable = mpvPath[0]
-    else:
-        popenEnv['PATH'] = os.environ['PATH']
-        if "LD_LIBRARY_PATH" in popenEnv:
-            del popenEnv['LD_LIBRARY_PATH']
+        executable = find_executable("mpv")
 
     os.environ['PATH'] = env['PATH']
+    mpvPackagedPath, popenPackagedEnv = _packagedCmd(["mpv"])
+    mpvPackagedExecutable = mpvPackagedPath[0]
+
+    if executable is None and mpvPackagedExecutable:
+        executable = mpvPackagedExecutable
+        popenEnv = popenPackagedEnv
 
     if executable == None:
         return showWarning("Please install <a href='https://mpv.io'>mpv</a> and add it to the PATH environment variable on Windows.", parent=mw)
