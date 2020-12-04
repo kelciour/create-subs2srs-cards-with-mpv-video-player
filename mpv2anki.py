@@ -839,6 +839,9 @@ class AnkiHelper(QObject):
             mw.col.decks.select(did)
 
         for p in subprocess_calls:
+            if os.environ.get("ADDON_DEBUG"):
+                p_debug = p[:1] + ['-v'] + p[1:]
+                print('DEBUG:', ' '.join(['"{}"'.format(s) if ' ' in s else s for s in p_debug]))
             self.call(p)
 
         if sub_id is not None and "Video Subtitles" in fieldsMap:
