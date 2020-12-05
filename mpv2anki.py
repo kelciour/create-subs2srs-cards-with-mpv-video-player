@@ -594,6 +594,7 @@ class AnkiHelper(QObject):
             argv += ["--audio=no"]
             argv += ["--sub=%s" % sub]
             argv += ["--sub-visibility=yes"]
+            argv += ["--sub-delay=%f" % self.subsManager.sub_delay]
             argv += ["--frames=1"]
             argv += ["--vf-add=lavfi-scale=%s:%s" % (self.settings["image_width"], self.settings["image_height"])]
             argv += ["--ovc=mjpeg"]
