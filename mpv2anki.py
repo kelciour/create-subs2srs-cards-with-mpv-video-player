@@ -595,6 +595,7 @@ class AnkiHelper(QObject):
             argv += ["--sub-delay=%f" % self.subsManager.sub_delay]
             argv += ["--frames=1"]
             argv += ["--vf-add=lavfi-scale=%s:%s" % (self.settings["image_width"], self.settings["image_height"])]
+            argv += ["--vf-add=format=fmt=yuvj422p"]
             argv += ["--ovc=mjpeg"]
             argv += ["--o=%s" % imagePath]
         subprocess_calls.append(argv)
