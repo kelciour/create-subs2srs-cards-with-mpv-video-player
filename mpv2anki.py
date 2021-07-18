@@ -93,7 +93,11 @@ def getVideoFile():
     key = ("Media (*.avi *.mkv *.mp4 *.mov *.mpg *.mpeg *.webm *.m4a *.mp3 *.wav);;All Files (*.*)")
     dirkey = "1213145732" + "Directory"
     dirname = mw.pm.profile.get(dirkey, expanduser("~"))
-    urls = QFileDialog.getOpenFileUrls(None, _("Open Video File or URL"), directory=QUrl.fromLocalFile(dirname), filter=key)[0]
+    if qtmajor == 5 and qtminor == 12:
+        directory = dirname
+    else:
+        directory = QUrl.fromLocalFile(dirname)
+    urls = QFileDialog.getOpenFileUrls(None, _("Open Video File or URL"), directory=directory, filter=key)[0]
     if urls and urls[0].isLocalFile():
         filePath = urls[0].toLocalFile()
         dirname = os.path.dirname(filePath)
