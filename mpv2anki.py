@@ -647,6 +647,12 @@ class AnkiHelper(QObject):
             if video_format == "webm":
                 argv += ["-c:v", "libvpx-vp9"]
                 argv += ["-b:v", "1400K", "-threads", "8", "-speed", "2", "-crf", "23"]
+            else:
+                argv += ["-c:v", "libx264"]
+                argv += ["-profile:v", "main", "-level", "3.1"]
+                argv += ["-pix_fmt", "yuv420p"]
+                argv += ["-c:a", "aac"]
+                argv += ["-movflags", "+faststart"]
             argv += [videoPath]
         else:
             argv = [self.mpvExecutable, self.filePath]
@@ -659,6 +665,12 @@ class AnkiHelper(QObject):
             if video_format == "webm":
                 argv += ["--ovc=libvpx-vp9"]
                 argv += ["--ovcopts=b=1400K,threads=4,crf=23,qmin=0,qmax=36,speed=2"]
+            else:
+                argv += ["--ovc=libx264"]
+                argv += ["--ovcopts=profile=main,level=31"]
+                argv += ["--vf-add=format=yuv420p"]
+                argv += ["--oac=aac"]
+                argv += ["--ofopts=movflags=+faststart"]
             argv += ["--o=%s" % videoPath]
         subprocess_calls.append(argv)
         return video
