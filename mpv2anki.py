@@ -55,7 +55,7 @@ from aqt.studydeck import StudyDeck
 from distutils.spawn import find_executable
 from anki.utils import isMac, isWin, isLin
 
-from . import icons_rc
+QDir.addSearchPath('icons', os.path.join(os.path.dirname(__file__), "icons"))
 
 try:
     from aqt.sound import _packagedCmd
@@ -909,8 +909,8 @@ class FieldMapping(QDialog):
         vbox.addWidget(groupBox)
 
         self.buttonBox = QDialogButtonBox(self)
-        self.buttonBox.setStandardButtons(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        self.buttonBox.setOrientation(Qt.Horizontal)
+        self.buttonBox.setStandardButtons(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        self.buttonBox.setOrientation(Qt.Orientation.Horizontal)
         self.buttonBox.accepted.connect(self.accept)
         self.buttonBox.rejected.connect(self.reject)
         vbox.addWidget(self.buttonBox)
@@ -942,13 +942,13 @@ class MainWindow(QDialog):
         grid = QGridLayout()
         
         label = QLabel(labels[0])
-        label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         grid.addWidget(label, 0, 0)
         grid.addWidget(spinBoxFirst, 0, 1)
         grid.addWidget(QLabel(labels[2]), 0, 2)
         
         label = QLabel(labels[1])
-        label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         grid.addWidget(label, 1, 0)
         grid.addWidget(spinBoxSecond, 1, 1)
         grid.addWidget(QLabel(labels[2]), 1, 2)
@@ -986,7 +986,7 @@ class MainWindow(QDialog):
 
     def mapFields(self, model):
         fm = FieldMapping(model, self.configManager, parent=self)
-        fm.exec_()
+        fm.exec()
 
     def initUI(self):
         self.setWindowTitle('mpv2anki')
@@ -1012,7 +1012,7 @@ class MainWindow(QDialog):
 
         self.audio_ext = QLineEdit(self.settings["audio_ext"])
 
-        icon = QIcon(":/icons/gears.png")
+        icon = QIcon("icons:gears.png")
         self.modelFieldsButton.setIcon(icon)
 
         grid = QGridLayout()
@@ -1074,14 +1074,14 @@ class MainWindow(QDialog):
         self.subsNativeLC.setReadOnly(True)
         self.subsTargetLC.setStyleSheet("QLineEdit{background: #f4f3f4;}")
         self.subsNativeLC.setStyleSheet("QLineEdit{background: #f4f3f4;}")
-        self.subsTargetLC.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
-        self.subsNativeLC.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
+        self.subsTargetLC.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter)
+        self.subsNativeLC.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter)
         self.subsTargetLang.currentIndexChanged.connect(lambda: self.chooseSubs(self.subsTargetLang, self.subsTargetLC))
         self.subsNativeLang.currentIndexChanged.connect(lambda: self.chooseSubs(self.subsNativeLang, self.subsNativeLC))
         grid3.addWidget(self.subsTargetLC, 0, 3)
         grid3.addWidget(self.subsNativeLC, 1, 3)
         grid3.addWidget(QLabel(" (optional)"), 1, 4)
-        grid3.addItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum), 0, 4, 1, 2)
+        grid3.addItem(QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum), 0, 4, 1, 2)
         subsGroup.setLayout(grid3)
 
         grid.addWidget(subsGroup, 3, 0, 1, 5)
@@ -1241,7 +1241,7 @@ or
     configManager = ConfigManager()
     mainWindow = MainWindow(configManager, parent=mw)
 
-    if mainWindow.exec_():
+    if mainWindow.exec():
         if mainWindow.isURL:
             txt = getOnlyText("Enter URL:")
             if not txt:
