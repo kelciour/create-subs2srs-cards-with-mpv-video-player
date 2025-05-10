@@ -34,6 +34,7 @@ __version__ = '1.0.0-alpha3'
 import json
 import glob
 import os
+import pywintypes
 import re
 import subprocess
 import sys
@@ -53,7 +54,7 @@ from anki.lang import _, langs
 from anki.hooks import addHook
 from aqt.studydeck import StudyDeck
 from distutils.spawn import find_executable
-from anki.utils import isMac, isWin, isLin
+from anki.utils import is_mac, is_win, is_lin
 
 QDir.addSearchPath('icons', os.path.join(os.path.dirname(__file__), "icons"))
 
@@ -68,7 +69,7 @@ import pysubs2
 
 from mpv import *
 
-if isMac and "/usr/local/bin" not in os.environ['PATH']:
+if is_mac and "/usr/local/bin" not in os.environ['PATH']:
     # https://docs.brew.sh/FAQ#my-mac-apps-dont-find-usrlocalbin-utilities
     os.environ['PATH'] = "/usr/local/bin:" + os.environ['PATH']
 
@@ -97,7 +98,7 @@ def getVideoFile():
         directory = dirname
     else:
         directory = QUrl.fromLocalFile(dirname)
-    urls = QFileDialog.getOpenFileUrls(None, _("Open Video File or URL"), directory=directory, filter=key)[0]
+    urls = QFileDialog.getOpenFileUrls(None, "Open Video File or URL", directory=directory, filter=key)[0]
     if urls and urls[0].isLocalFile():
         filePath = urls[0].toLocalFile()
         dirname = os.path.dirname(filePath)
@@ -314,11 +315,16 @@ class SubtitlesHelper():
             else:
                 idx += 1
 
-    def filter_subtitles(self, clip_start, clip_end, pad_start, pad_end):
+    def filter_subtitles(self, clip_start, clip_end, pad_start=0, pad_end=0, translation=False):
         subs_filtered = []
 
-        for idx in range(len(self.subs)):
-            sub_start, sub_end, sub_content = self.subs[idx]
+        if not translation:
+            subs = self.subs
+        else:
+            subs = self.translations
+
+        for idx in range(len(subs)):
+            sub_start, sub_end, sub_content = subs[idx]
 
             if sub_end > (clip_start + pad_start) and sub_start < (clip_end - pad_end):
                 subs_filtered.append((sub_start - clip_start, sub_end - clip_start, sub_content))
@@ -353,6 +359,10 @@ class SubtitlesHelper():
             return self.subs[sub_id]
         else:
             return self.translations[sub_id]
+
+    def get_subtitle_by_time_range(self, start_time, end_time, translation=False):
+        subs = self.filter_subtitles(start_time, end_time, translation=translation)
+        return '<br>'.join([s[2] for s in subs])
 
     def get_prev_subtitle(self, sub_id, translation=False):
         if sub_id <= 0 or (translation is True and len(self.translations) == 0):
@@ -493,15 +503,19 @@ class MPVMonitor(MPV):
         if audio_id == False:
             self.audio_ffmpeg_id = 0
         elif audio_id == "auto":
-            track_count = int(self.get_property("track-list/count"))
-            for i in range(0, track_count):
-                track_type = self.get_property("track-list/%d/type" % i)
-                track_index = int(self.get_property("track-list/%d/ff-index" % i))
-                track_selected = self.get_property("track-list/%d/selected" % i)
+            try:
+                track_count = int(self.get_property("track-list/count"))
+                for i in range(0, track_count):
+                    track_type = self.get_property("track-list/%d/type" % i)
+                    track_index = int(self.get_property("track-list/%d/ff-index" % i))
+                    track_selected = self.get_property("track-list/%d/selected" % i)
 
-                if track_type == "audio" and track_selected == "yes":
-                    self.audio_ffmpeg_id = track_index
-                    break
+                    if track_type == "audio" and track_selected == "yes":
+                        self.audio_ffmpeg_id = track_index
+                        break
+            except pywintypes.error as e:
+                if 'The pipe is being closed.' not in str(e):
+                    raise
         else:
             self.audio_ffmpeg_id = self.audio_id - 1
 
@@ -677,7 +691,7 @@ class AnkiHelper(QObject):
 
     # anki.utils.call() with bundle libs if mpv is packaged
     def call(self, argv):
-        if isWin:
+        if is_win:
             si = subprocess.STARTUPINFO()
             try:
                 si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
@@ -692,8 +706,8 @@ class AnkiHelper(QObject):
         
         noteFields = { k:"" for k in self.configManager.getFields()}
 
-        model = mw.col.models.byName(self.settings["default_model"])
-        mw.col.models.setCurrent(model)
+        model = mw.col.models.by_name(self.settings["default_model"])
+        mw.col.models.set_current(model)
 
         source = os.path.basename(self.filePath)
         source = os.path.splitext(source)[0]
@@ -702,7 +716,7 @@ class AnkiHelper(QObject):
         path = os.path.basename(self.filePath)
         noteFields["Path"] = self.filePath
 
-        note = mw.col.newNote(forDeck=False)
+        note = mw.col.new_note(model)
 
         subTranslation = ""
 
@@ -763,6 +777,14 @@ class AnkiHelper(QObject):
 
             sub_pad_start = 0
             sub_pad_end = 0
+
+            text = self.subsManager.get_subtitle_by_time_range(sub_start, sub_end)
+            if text:
+                subText = text
+
+            text = self.subsManager.get_subtitle_by_time_range(sub_start, sub_end, translation=True)
+            if text:
+                subTranslation = text
 
         if sub_start >= 0 and sub_end >= 0:
             noteId = "%s_%s-%s" % (self.format_filename(source), secondsToFilename(sub_start), secondsToFilename(sub_end))
@@ -848,7 +870,7 @@ class AnkiHelper(QObject):
             return
 
         did = mw.col.decks.id(self.settings["default_deck"])
-        note.model()['did'] = did
+        note.note_type()['did'] = did
 
         if mw.state == "deckBrowser":
             mw.col.decks.select(did)
@@ -862,11 +884,11 @@ class AnkiHelper(QObject):
         if sub_id is not None and "Video Subtitles" in fieldsMap:
             self.subsManager.write_subtitles(sub_start, sub_end, sub_pad_start, sub_pad_end, subtitlesPath)
 
-        cards = mw.col.addNote(note)
+        cards = mw.col.add_note(note, did)
         if cards == 0:
             self.mpvManager.command("show-text", "Error: No cards added.")
         else:
-            if isMac:
+            if is_mac:
                 self.mpvManager.command("expand-properties", "show-text", "Added.")
             else:
                 self.mpvManager.command("expand-properties", "show-text", "${osd-ass-cc/0}{\\fscx150\\fscy150}✔")
@@ -888,8 +910,8 @@ class FieldMapping(QDialog):
 
         self.fields = []
         groupBox = QGroupBox("Field Mapping")
-        m = mw.col.models.byName(self.name)
-        fields = mw.col.models.fieldNames(m)
+        m = mw.col.models.by_name(self.name)
+        fields = mw.col.models.field_names(m)
         grid = QGridLayout()
         for idx, fld in enumerate(fields):
             le = QLineEdit(fld)
@@ -972,7 +994,7 @@ class MainWindow(QDialog):
         edit = QPushButton(_("Manage"))
         edit.clicked.connect(onEdit)
         def nameFunc():
-            return sorted(mw.col.models.allNames())
+            return sorted(n.name for n in mw.col.models.all_names_and_ids())
         ret = StudyDeck(mw, names=nameFunc, buttons=[edit], accept=_("Choose"), title=_("Choose Note Type"), parent=self)
         if ret.name == None:
             return
@@ -997,7 +1019,7 @@ class MainWindow(QDialog):
 
         importGroup = QGroupBox("Import Options")
         self.modelButton = QPushButton()
-        if mw.col.models.byName(self.settings["default_model"]):
+        if mw.col.models.by_name(self.settings["default_model"]):
             self.modelButton.setText(self.settings["default_model"])
         else:
             self.modelButton.setText(mw.col.models.current()['name'])
@@ -1151,8 +1173,8 @@ class MainWindow(QDialog):
         if not fm:
             return False, "No fields were mapped. Please click on the gear icon and map some fields."
 
-        model = mw.col.models.byName(name)
-        fields = mw.col.models.fieldNames(model)
+        model = mw.col.models.by_name(name)
+        fields = mw.col.models.field_names(model)
 
         m = {}
         renamed_or_deleted = []
@@ -1188,7 +1210,7 @@ class MainWindow(QDialog):
 def openVideoWithMPV():
     env = os.environ.copy()
 
-    if isWin:
+    if is_win:
         path = os.environ['PATH'].split(os.pathsep)
         os.environ['PATH'] = os.pathsep.join(path[1:])
 
@@ -1198,7 +1220,7 @@ def openVideoWithMPV():
     if "LD_LIBRARY_PATH" in popenEnv:
         del popenEnv['LD_LIBRARY_PATH']
 
-    if isMac and os.path.exists("/Applications/mpv.app/Contents/MacOS/mpv"):
+    if is_mac and os.path.exists("/Applications/mpv.app/Contents/MacOS/mpv"):
         executable = "/Applications/mpv.app/Contents/MacOS/mpv"
 
     if executable is None:
@@ -1209,9 +1231,9 @@ def openVideoWithMPV():
     mpvPackagedExecutable = mpvPackagedPath[0]
 
     if executable is None or (executable == mpvPackagedExecutable):
-        if isLin:
+        if is_lin:
             return showWarning("Please install <a href='https://mpv.io'>mpv</a> and try again.", parent=mw)
-        if isMac:
+        if is_mac:
             msg = """The add-on can't find mpv. Please install it from <a href='https://mpv.io'>https://mpv.io</a> and try again.
 <br><br>
 - Download mpv from <a href='https://laboratory.stolendata.net/~djinn/mpv_osx/'>https://laboratory.stolendata.net/~djinn/mpv_osx/</a><br>
@@ -1227,7 +1249,7 @@ or
 <code>brew cask install mpv</code>
 """
             return showText(msg, type='html', parent=mw)
-        assert isWin
+        assert is_win
         msg = """The add-on can't find mpv. Please install it from <a href='https://mpv.io'>https://mpv.io</a> and try again.
 <br><br>
 - The Windows build can be downloaded from <a href='https://sourceforge.net/projects/mpv-player-windows/files/64bit/'>https://sourceforge.net/projects/mpv-player-windows/files/64bit/</a><br>
@@ -1263,6 +1285,6 @@ or
 
 
 action = QAction("Open Video...", mw)
-action.setShortcut(_("Ctrl+O"))
+action.setShortcut("Ctrl+O")
 action.triggered.connect(openVideoWithMPV)
 mw.form.menuTools.addAction(action)
