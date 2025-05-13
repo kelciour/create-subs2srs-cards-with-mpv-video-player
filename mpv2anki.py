@@ -34,7 +34,6 @@ __version__ = '1.0.0-alpha3'
 import json
 import glob
 import os
-import pywintypes
 import re
 import subprocess
 import sys
@@ -513,7 +512,7 @@ class MPVMonitor(MPV):
                     if track_type == "audio" and track_selected == "yes":
                         self.audio_ffmpeg_id = track_index
                         break
-            except pywintypes.error as e:
+            except Exception as e:
                 if 'The pipe is being closed.' not in str(e):
                     raise
         else:
