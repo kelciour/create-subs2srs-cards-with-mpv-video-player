@@ -37,9 +37,10 @@ import sys
 import tempfile
 import threading
 import time
-from distutils.spawn import (  # pylint: disable=import-error,no-name-in-module
-    find_executable,
-)
+try:
+    from distutils.spawn import find_executable
+except:
+    from shutil import which as find_executable
 from queue import Empty, Full, Queue
 from typing import Dict, Optional
 

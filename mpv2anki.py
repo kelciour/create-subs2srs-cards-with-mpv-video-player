@@ -52,7 +52,10 @@ from anki.lang import _, langs
 
 from anki.hooks import addHook
 from aqt.studydeck import StudyDeck
-from distutils.spawn import find_executable
+try:
+    from distutils.spawn import find_executable
+except:
+    from shutil import which as find_executable
 from anki.utils import is_mac, is_win, is_lin
 
 QDir.addSearchPath('icons', os.path.join(os.path.dirname(__file__), "icons"))
